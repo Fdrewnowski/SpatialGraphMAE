@@ -46,6 +46,8 @@ def load_directory_bikeguessr(directory: str = None, save: bool = True) -> None:
         directory = os.path.join(os.getcwd(), DATA_INPUT)
     found_files = list(Path(directory).glob('*.xml'))
     for path in tqdm(found_files):
+        logging.info('processing: ' + str(path.stem) +
+                     ' size: ' + _sizeof_fmt(os.path.getsize(path)))
         load_single_bikeguessr(path, True)
     logging.info('end load bikeguessr directory')
 
@@ -227,6 +229,14 @@ def _preprocess(graph):
     graph = graph.remove_self_loop().add_self_loop()
     graph.create_formats_()
     return graph
+
+
+def _sizeof_fmt(num: int, suffix: str = "B") -> str:
+    for unit in ["", "k", "M", "G", "T", "Pi", "Ei", "Zi"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f}Yi{suffix}"
 
 
 if __name__ == "__main__":
