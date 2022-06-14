@@ -1,8 +1,12 @@
 import logging
+import os
+from pathlib import Path
+from typing import List, Tuple
 
 import numpy as np
 import torch
 from dgl.data.utils import load_graphs
+from dgl.heterograph import DGLHeteroGraph
 from tqdm import tqdm
 
 from graphmae.datasets.data_util import load_dataset
@@ -10,20 +14,47 @@ from graphmae.evaluation import node_classification_evaluation
 from graphmae.models import build_model
 from graphmae.utils import (TBLogger, build_args, create_optimizer,
                             load_best_configs, set_random_seed)
+from main_load_bikeguessr import DATA_OUTPUT, _sizeof_fmt
 from main_transductive import build_args, load_best_configs, pretrain
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 
-def load_bikeguessr_dataset(city):
-    graph = load_graphs("./wro_14_20_masks.graph", [0])[0][0]
-    print(graph)
-    graph = graph.remove_self_loop()
-    graph = graph.add_self_loop()
-    num_features = graph.ndata["feat"].shape[1]
-    num_classes = 2
-    return graph, (num_features, num_classes)
+def load_bikeguessr_dataset(directory: str = None) -> Tuple[DGLHeteroGraph, Tuple[int, int]]:
+    logging.info('load bikeguessr dataset')
+    if directory is None:
+        directory = os.path.join(os.getcwd(), DATA_OUTPUT)
+    found_files = list(Path(directory).glob('*.graph'))
+    for path in found_files:
+        logging.info('processing: ' + str(path.stem) +
+                     ' size: ' + _sizeof_fmt(os.path.getsize(path)))
+        graph = load_graphs(str(path), [0])[0][0]
+        print(graph)
+        graph = graph.remove_self_loop()
+        graph = graph.add_self_loop()
+        num_features = graph.ndata["feat"].shape[1]
+        num_classes = 2
+        return graph, (num_features, num_classes)
+
+def load_bikeguessr_dataset_all() -> Tuple[List[DGLHeteroGraph], Tuple[int, int]]:
+    logging.info('load bikeguessr dataset')
+    graphs = []
+    if directory is None:
+        directory = os.path.join(os.getcwd(), DATA_OUTPUT)
+    found_files = list(Path(directory).glob('*.graph'))
+    for path in tqdm(found_files):
+        logging.info('processing: ' + str(path.stem) +
+                     ' size: ' + _sizeof_fmt(os.path.getsize(path)))
+        
+        graph = load_graphs(path, [0])[0][0]
+        print(graph)
+        graph = graph.remove_self_loop()
+        graph = graph.add_self_loop()
+        num_features = graph.ndata["feat"].shape[1]
+        num_classes = 2
+        graphs.append(graph)
+    return graphs, (num_features, num_classes)
 
 
 def train_transductive(args):
@@ -51,7 +82,7 @@ def train_transductive(args):
     logs = args.logging
     use_scheduler = args.scheduler
 
-    graph, (num_features, num_classes) = load_bikeguessr_dataset(dataset_name)
+    graph, (num_features, num_classes) = load_bikeguessr_dataset()
     args.num_features = num_features
 
     acc_list = []
