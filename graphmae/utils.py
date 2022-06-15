@@ -87,7 +87,7 @@ def build_args():
     
     parser.add_argument("--load_model", action="store_true")
     parser.add_argument("--save_model", action="store_true")
-    parser.add_argument("--use_cfg", action="store_true")
+    parser.add_argument("--use_cfg", action="store_true", default=True)
     parser.add_argument("--logging", action="store_true")
     parser.add_argument("--scheduler", action="store_true", default=False)
     parser.add_argument("--concat_hidden", action="store_true", default=False)
