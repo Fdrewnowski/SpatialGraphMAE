@@ -198,7 +198,7 @@ def _convert_nx_to_dgl_as_linegraph(graph_nx: MultiDiGraph, selected_keys: List 
 
     graph_dgl_line_graph.ndata['feat'] = torch.cat(
         features_to_line_graph).reshape((-1, len(selected_keys)))
-    graph_dgl_line_graph.ndata['label'] = graph_dgl.edata['label']
+    graph_dgl_line_graph.ndata['label'] = graph_dgl.edata['label'].type(torch.LongTensor)
     return graph_dgl_line_graph
 
 
