@@ -17,25 +17,25 @@ def download_graph(place: str):
    
     #print("Merging")
     previous = graph_without_cycle
-    nx.set_edge_attributes(previous, 0, "cycleway")
+    nx.set_edge_attributes(previous, 0, "label")
     for bike_graph in graphs_with_cycle:
-        nx.set_edge_attributes(bike_graph, 1, "cycleway")
+        nx.set_edge_attributes(bike_graph, 1, "label")
         merged_graph = nx.compose(previous, bike_graph)
         previous = merged_graph
         
     #print("Saving") 
     prune_graph = ox.utils_graph.remove_isolated_nodes(merged_graph)
     prune_graph.name = output
-    ox.save_graphml(prune_graph, filepath="./data/{}.xml".format(output))
+    ox.save_graphml(prune_graph, filepath="./data_raw/{}.xml".format(output))
 
 
 
 
 if __name__ == "__main__":
-    places_to_download = ["Wrocław, województwo dolnośląskie, Polska",
-                          "Gdańsk, województwo pomorskie, Polska",
-                          "Berlin, Niemcy",
-                          "Mediolan, Lombardia, Włochy"] #,
+    places_to_download = ["Wrocław, województwo dolnośląskie, Polska"]
+                        #  "Gdańsk, województwo pomorskie, Polska",
+                        #  "Berlin, Niemcy",
+                        #  "Mediolan, Lombardia, Włochy"] #,
                         #   "Amsterdam, Holandia Północna, Niderlandy, Holandia",
                         #   "Poznań, województwo wielkopolskie, Polska",
                         #   "Warszawa, województwo mazowieckie, Polska",

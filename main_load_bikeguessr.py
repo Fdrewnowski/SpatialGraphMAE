@@ -21,7 +21,7 @@ logging.basicConfig(
 
 SELECTED_KEYS = ['oneway', 'lanes', 'highway', 'maxspeed',
                  'length', 'access', 'bridge', 'junction',
-                 'width', 'service', 'tunnel']  # not used 'cycleway', 'bycycle']
+                 'width', 'service', 'tunnel', 'label']  # not used 'cycleway', 'bycycle']
 DEFAULT_VALUES = {'oneway': False, 'lanes': 2, 'highway': 11, 'maxspeed': 50,
                   'length': 0, 'access': 6, 'bridge': 0, 'junction': 0,
                   'width': 2, 'service': 0, 'tunnel': 0}
@@ -77,17 +77,19 @@ def _load_transform_linegraph(path: str) -> DGLHeteroGraph:
     raw_graphml = ox.io.load_graphml(path)
     encoded_graphml = _encode_data(raw_graphml)
     seen_values = _get_all_key_and_unique_values(encoded_graphml)
-    # print(seen_values['highway'])
-    labels_graphml = _generate_cycle_label(
-        encoded_graphml, HIGHWAY_CODING['highway'])
-    # print(labels_graphml[95584835][6152142174])
-    return _convert_nx_to_dgl_as_linegraph(labels_graphml)
+    #print(encoded_graphml[95584835][6152142174])
+    #print(seen_values['label'])
+    #labels_graphml = _generate_cycle_label(
+    #    encoded_graphml, HIGHWAY_CODING['highway'])
+    return _convert_nx_to_dgl_as_linegraph(encoded_graphml)
 
 
 def _create_mask(graph: DGLHeteroGraph) -> Tuple[DGLHeteroGraph, List, StandardScaler]:
     num_nodes = graph.num_nodes()
 
-    split_idx = _get_random_split(num_nodes)
+    #split_idx = _get_random_split(num_nodes)
+    split_idx = _get_stratified_split(graph.ndata['label'])
+
     train_idx, val_idx, test_idx = split_idx["train"], split_idx["valid"], split_idx["test"]
     graph = _preprocess(graph)
 
@@ -186,6 +188,7 @@ def _generate_cycle_label(graph_nx: MultiDiGraph, highway_coding: Dict = {}) -> 
 
 
 def _convert_nx_to_dgl_as_linegraph(graph_nx: MultiDiGraph, selected_keys: List = SELECTED_KEYS) -> DGLHeteroGraph:
+    selected_keys.remove('label')
     graph_dgl = dgl.from_networkx(
         graph_nx, edge_attrs=(selected_keys + ['label']))
     graph_dgl_line_graph = dgl.line_graph(graph_dgl)
@@ -212,6 +215,43 @@ def _get_random_split(number_of_nodes, train_size_coef=0.05, val_size_coef=0.18,
     split_idx['test'].sort()
 
     return split_idx
+
+def _get_stratified_split(labels, train_bicycle_coef = 0.2, val_bicycle_coef = 0.3, test_bicycle_coef = 0.4):
+    number_of_nodes = labels.shape[0]
+    cycle_ids = ((labels == True).nonzero(as_tuple=True)[0]).tolist()
+    number_of_cycle = len(cycle_ids)
+    train_size = int(number_of_cycle * train_bicycle_coef)
+    val_size = int(number_of_cycle * val_bicycle_coef)
+    test_size = int(number_of_cycle * test_bicycle_coef)
+
+    assert number_of_cycle > train_size
+    assert number_of_cycle > val_size
+    assert number_of_cycle > test_size
+
+    split_idx = {}
+    train_cycle_idx = random.sample(cycle_ids, train_size)
+    train_noncycle_idx = _randome_sample_with_exceptions(number_of_nodes, train_size, cycle_ids)
+    split_idx['train'] = train_cycle_idx + train_noncycle_idx
+    split_idx['train'].sort()
+    
+    val_cycle_idx = random.sample(cycle_ids, val_size)
+    val_noncycle_idx = _randome_sample_with_exceptions(number_of_nodes, val_size, cycle_ids)
+    split_idx['valid'] = val_cycle_idx + val_noncycle_idx
+    split_idx['valid'].sort()
+
+    test_cycle_idx = random.sample(cycle_ids, test_size)
+    test_noncycle_idx = _randome_sample_with_exceptions(number_of_nodes, test_size, cycle_ids)
+    split_idx['test'] = test_cycle_idx + test_noncycle_idx
+    split_idx['test'].sort()
+    
+    return split_idx
+
+def _randome_sample_with_exceptions(max_range, size, exceptions):
+    not_cycle = list(range(0, max_range))
+    for elem in exceptions:
+        not_cycle.remove(elem)
+    return random.sample(not_cycle, size)
+        
 
 
 def _scale_feats(x):
