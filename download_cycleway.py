@@ -1,6 +1,7 @@
 import osmnx as ox
 import networkx as nx
 from tqdm import tqdm
+import copy
 
 def download_graph(place: str):
     place_parts = place.split(',')
@@ -22,11 +23,21 @@ def download_graph(place: str):
         nx.set_edge_attributes(bike_graph, 1, "label")
         merged_graph = nx.compose(previous, bike_graph)
         previous = merged_graph
-        
+
+    merged_graph_copy = merged_graph.copy()
+    
+    edge_id = 0
+    for edge in merged_graph.edges():
+        for connection in merged_graph[edge[0]][edge[1]].keys():
+            for key, val in merged_graph[edge[0]][edge[1]][connection].items():
+                graph_edge = merged_graph_copy[edge[0]][edge[1]][connection]
+                graph_edge['idx'] = edge_id
+        edge_id += 1
+
     #print("Saving") 
-    prune_graph = ox.utils_graph.remove_isolated_nodes(merged_graph)
-    prune_graph.name = output
-    ox.save_graphml(prune_graph, filepath="./data_raw/{}.xml".format(output))
+    merged_graph = ox.utils_graph.remove_isolated_nodes(merged_graph_copy)
+    merged_graph.name = output
+    ox.save_graphml(merged_graph, filepath="./data_raw/{}.xml".format(output))
 
 
 

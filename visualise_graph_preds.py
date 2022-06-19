@@ -17,7 +17,7 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
     mask_ids = ((mask == True).nonzero(as_tuple=True)[0]).tolist()
     pred_ids = ((preds == True).nonzero(as_tuple=True)[0]).tolist()
     
-    year = str(grapf_networkx.name.split("_")[3])
+    year = str(2022)
     dif_masked_cycle = nx.create_empty_copy(grapf_networkx)
     dif_masked_road = dif_masked_cycle.copy()
     dif_masked_different = dif_masked_cycle.copy()
@@ -25,9 +25,10 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
     diff_unmasked = dif_masked_cycle.copy()
     
     
-    for x in tqdm(set(grapf_networkx.edges()), total = len(set(grapf_networkx.edges()))):
+    for idx, x in enumerate(tqdm(set(grapf_networkx.edges()), total = len(set(grapf_networkx.edges())))):
         edge = grapf_networkx[x[0]][x[1]][0]
-        if edge['id'] in mask_ids:
+        print(edge)
+        if edge['idx'] in mask_ids: 
             dif_attributes = edge.copy()
             if dif_attributes['label'] == 1 and edge['id'] in pred_ids: #if cycle
                 vis_data = dict(
@@ -38,7 +39,7 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
                 vis_data['data'] = {year:[dif_attributes['label'],True]}
                 dif_attributes['vis_data'] = vis_data
                 dif_masked_cycle.add_edges_from([(x[0], x[1], dif_attributes)])
-            elif edge['id'] in pred_ids:
+            elif edge['idx'] in pred_ids:
                 vis_data = dict(
                 href=f"https://www.openstreetmap.org/way/{edge['osmid']}", 
                 years=['cycle', 'masked'], 
@@ -72,35 +73,35 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
     try:
         m = ox.plot_graph_folium(dif_masked_different, popup_attribute='vis_data', graph_map=m, color="orange", edge_width=2)
     except Exception as e:
-        print(str(e))
+        print("Error in pred as noncycleway" + str(e))
     try:
         m = ox.plot_graph_folium(dif_masked_cycle, popup_attribute='vis_data', graph_map=m, color="green", edge_width=2)
     except Exception as e:
-        print(str(e))
+        print("Error in pred as true cycle" + str(e))
     try:
         m = ox.plot_graph_folium(dif_masked_road, popup_attribute='vis_data', graph_map=m, color="red", edge_width=2)
     except Exception as e:
-        print(str(e))
+        print("Error in pred as new cycle" + str(e))
 
-    m.save(f"./data/{}_masks.html".format(name))
+    m.save(f"./visu/{name}_masks.html")
 
 
 
 if __name__ == "__main__":
     #options
     ox_graph_name = "Wrocław_Polska_recent.xml"
-    dgl_graph_name = "Wrocław_Polska_recent.graph"
-    prediction_file = "Wrocław_Polska_recent_preds.pickle"
-    mask_to_visualise = 'test' # 3 options train, dev, test
+    dgl_graph_name = "Wroclaw_Polska_recent_masks.graph"
+    prediction_file = "Wrocław_Polska_recent_pred.pickle"
+    mask_to_visualise = 'test_mask' # 3 options train, dev, test
 
-    graph_ox = ox.io.load_graphml("./data/" + ox_graph_name)
-    dgl_graph, label_dict = load_graphs("./data/" + dgl_graph_name)[0]
+    graph_ox = ox.io.load_graphml("./data_raw/" + ox_graph_name)
+    dgl_graph = load_graphs("./data_transformed/" + dgl_graph_name)[0][0]
 
-    with open('data/{}', 'rb') as handle:
+    with open("./data/" + prediction_file, 'rb') as handle:
         predictions = pickle.load(handle)
         predictions = predictions.max(1)[1].type_as(dgl_graph.ndata[mask_to_visualise])
 
-    _show_preds(graph_ox, predictions, dgl_graph.ndata[mask_to_visualise] , graph_ox.split('.')[0])
+    _show_preds(graph_ox, predictions, dgl_graph.ndata[mask_to_visualise] , prediction_file.split('.')[0])
 
 
 
