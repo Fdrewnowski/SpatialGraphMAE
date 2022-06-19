@@ -2,8 +2,11 @@ import copy
 from tqdm import tqdm
 import torch
 import torch.nn as nn
-
+import logging
 from graphmae.utils import create_optimizer, accuracy
+
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 
 def node_classification_evaluation(model, graph, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, linear_prob=True, mute=False):
@@ -19,7 +22,7 @@ def node_classification_evaluation(model, graph, x, num_classes, lr_f, weight_de
 
     num_finetune_params = [p.numel() for p in encoder.parameters() if  p.requires_grad]
     if not mute:
-        print(f"num parameters for finetuning: {sum(num_finetune_params)}")
+        logging.info(f"num parameters for finetuning: {sum(num_finetune_params)}")
     
     encoder.to(device)
     optimizer_f = create_optimizer("adam", encoder, lr_f, weight_decay_f)
@@ -77,9 +80,9 @@ def linear_probing_for_transductive_node_classiifcation(model, graph, feat, opti
         pred = best_model(graph, x)
         estp_test_acc = accuracy(pred[test_mask], labels[test_mask])
     if mute:
-        print(f"# IGNORE: --- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch} --- ")
+        logging.info(f"# IGNORE: --- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch} --- ")
     else:
-        print(f"--- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch} --- ")
+        logging.info(f"--- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch} --- ")
 
     # (final_acc, es_acc, best_acc)
     return test_acc, estp_test_acc
@@ -138,9 +141,9 @@ def linear_probing_for_inductive_node_classiifcation(model, x, labels, mask, opt
         pred = best_model(None, x)
         estp_test_acc = accuracy(pred[test_mask], labels[test_mask])
     if mute:
-        print(f"# IGNORE: --- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch} ")
+        logging.info(f"# IGNORE: --- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch} ")
     else:
-        print(f"--- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch}")
+        logging.info(f"--- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch}")
 
     return test_acc, estp_test_acc
 

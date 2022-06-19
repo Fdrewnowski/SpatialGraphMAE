@@ -13,52 +13,36 @@ from graphmae.datasets.data_util import load_dataset
 from graphmae.evaluation import node_classification_evaluation
 from graphmae.models import build_model
 from graphmae.utils import (TBLogger, build_args, create_optimizer,
-                            load_best_configs, set_random_seed)
-from main_load_bikeguessr import DATA_OUTPUT, _sizeof_fmt
-from main_transductive import build_args, load_best_configs, pretrain
+                            get_current_lr, load_best_configs, set_random_seed)
+from main_transform_raw_bikeguessr import DATA_OUTPUT, _sizeof_fmt
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 
-def load_bikeguessr_dataset(directory: str = None) -> Tuple[DGLHeteroGraph, Tuple[int, int]]:
+def load_bikeguessr_dataset(filename: str, directory: str = None) -> Tuple[List[DGLHeteroGraph], Tuple[int, int]]:
     logging.info('load bikeguessr dataset')
     if directory is None:
         directory = os.path.join(os.getcwd(), DATA_OUTPUT)
-    found_files = list(Path(directory).glob('*.graph'))
-    for path in found_files:
-        logging.info('processing: ' + str(path.stem) +
-                     ' size: ' + _sizeof_fmt(os.path.getsize(path)))
-        graph = load_graphs(str(path), [0])[0][0]
-        print(graph)
-        graph = graph.remove_self_loop()
-        graph = graph.add_self_loop()
-        num_features = graph.ndata["feat"].shape[1]
-        num_classes = 2
-        return graph, (num_features, num_classes)
+    file = Path(directory, filename)
 
-def load_bikeguessr_dataset_all() -> Tuple[List[DGLHeteroGraph], Tuple[int, int]]:
-    logging.info('load bikeguessr dataset')
-    graphs = []
-    if directory is None:
-        directory = os.path.join(os.getcwd(), DATA_OUTPUT)
-    found_files = list(Path(directory).glob('*.graph'))
-    for path in tqdm(found_files):
-        logging.info('processing: ' + str(path.stem) +
-                     ' size: ' + _sizeof_fmt(os.path.getsize(path)))
-        
-        graph = load_graphs(path, [0])[0][0]
-        print(graph)
-        graph = graph.remove_self_loop()
-        graph = graph.add_self_loop()
-        num_features = graph.ndata["feat"].shape[1]
-        num_classes = 2
-        graphs.append(graph)
+    logging.info('processing: ' + str(file.stem) +
+                 ' size: ' + _sizeof_fmt(os.path.getsize(file)))
+    graphs, _ = load_graphs(str(file))
+    num_features, num_classes = [], []
+    for i in range(len(graphs)):
+        graphs[i] = graphs[i].remove_self_loop()
+        graphs[i] = graphs[i].add_self_loop()
+    num_features = graphs[i].ndata["feat"].shape[1]
+    num_classes = 2
+
     return graphs, (num_features, num_classes)
 
 
 def train_transductive(args):
-    device = args.device if args.device >= 0 else "cpu"
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #device = 'cpu'
+    logging.info("using device: {}".format(device))
     seeds = args.seeds
     dataset_name = args.dataset
     max_epoch = args.max_epoch
@@ -82,7 +66,8 @@ def train_transductive(args):
     logs = args.logging
     use_scheduler = args.scheduler
 
-    graph, (num_features, num_classes) = load_bikeguessr_dataset()
+    graphs, (num_features, num_classes) = load_bikeguessr_dataset(
+        'bikeguessr_merged_masks.graph')
     args.num_features = num_features
 
     acc_list = []
@@ -113,9 +98,9 @@ def train_transductive(args):
         else:
             scheduler = None
 
-        x = graph.ndata["feat"]
+        X = [g.ndata['feat'] for g in graphs]
         if not load_model:
-            model = pretrain(model, graph, x, optimizer, max_epoch, device, scheduler,
+            model = pretrain(model, graphs, X, optimizer, max_epoch, device, scheduler,
                              num_classes, lr_f, weight_decay_f, max_epoch_f, linear_prob, logger)
             model = model.cpu()
 
@@ -129,18 +114,51 @@ def train_transductive(args):
         model = model.to(device)
         model.eval()
 
-        final_acc, estp_acc = node_classification_evaluation(
-            model, graph, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, linear_prob)
-        acc_list.append(final_acc)
-        estp_acc_list.append(estp_acc)
+        for g, x in zip(graphs, X):
+            final_acc, estp_acc = node_classification_evaluation(
+                model, g, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, linear_prob)
+            acc_list.append(final_acc)
+            estp_acc_list.append(estp_acc)
 
         if logger is not None:
             logger.finish()
 
     final_acc, final_acc_std = np.mean(acc_list), np.std(acc_list)
     estp_acc, estp_acc_std = np.mean(estp_acc_list), np.std(estp_acc_list)
-    print(f"# final_acc: {final_acc:.4f}±{final_acc_std:.4f}")
-    print(f"# early-stopping_acc: {estp_acc:.4f}±{estp_acc_std:.4f}")
+    logging.info(f"# final_acc: {final_acc:.4f}±{final_acc_std:.4f}")
+    logging.info(f"# early-stopping_acc: {estp_acc:.4f}±{estp_acc_std:.4f}")
+
+
+def pretrain(model, graphs: List[DGLHeteroGraph], feats: List[torch.Tensor], optimizer, max_epoch, device, scheduler, num_classes, lr_f, weight_decay_f, max_epoch_f, linear_prob, logger=None):
+    logging.info("start training..")
+    epoch_iter = tqdm(range(max_epoch))
+
+    for epoch in epoch_iter:
+        for g, feat in zip(graphs, feats):
+            g = g.to(device)
+            x = feat.to(device)
+            model.train()
+
+            loss, loss_dict = model(g, x)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            if scheduler is not None:
+                scheduler.step()
+
+            epoch_iter.set_description(
+                f"# Epoch {epoch}: train_loss: {loss.item():.4f}")
+            if logger is not None:
+                loss_dict["lr"] = get_current_lr(optimizer)
+                logger.note(loss_dict, step=epoch)
+
+            if (epoch + 1) % 200 == 0:
+                node_classification_evaluation(
+                    model, g, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, linear_prob, mute=True)
+
+    # return best_model
+    return model
 
 
 if __name__ == '__main__':
@@ -148,5 +166,7 @@ if __name__ == '__main__':
     args.dataset = 'bikeguessr'
     if args.use_cfg:
         args = load_best_configs(args, "configs.yml")
+    args.save_model = False
+    args.load_model = True
     print(args)
     train_transductive(args)
