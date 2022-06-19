@@ -24,13 +24,12 @@ def _visualise_masked_roads(grapf_networkx: MultiDiGraph, mask: Tensor, name: st
     dif_masked_road = dif_masked_cycle.copy()
     diff_unmasked = dif_masked_cycle.copy()
     
-    
     for idx, x in enumerate(tqdm(set(grapf_networkx.edges()), total = len(set(grapf_networkx.edges())))):
         edge = grapf_networkx[x[0]][x[1]][0]
-        if edge['idx'] in mask_ids:
+        if int(edge['idx']) in mask_ids:
             dif_attributes = edge.copy()
 
-            if dif_attributes['label'] == 1: #if cycle
+            if int(dif_attributes['label']) == 1: #if cycle
                 vis_data = dict(
                 href=f"https://www.openstreetmap.org/way/{edge['osmid']}", 
                 years=['cycle', 'masked'], 
@@ -69,13 +68,13 @@ def _visualise_masked_roads(grapf_networkx: MultiDiGraph, mask: Tensor, name: st
             diff_unmasked.add_edges_from([(x[0], x[1], dif_attributes)])
 
             
-    m = ox.plot_graph_folium(diff_unmasked, popup_attribute='vis_data', color="blue", edge_width=1)
+    m = ox.plot_graph_folium(diff_unmasked, popup_attribute='vis_data', color="blue", edge_width=1, prefer_canvas=True)
     try:
-        m = ox.plot_graph_folium(dif_masked_cycle, popup_attribute='vis_data', graph_map=m, color="green", edge_width=2)
+        m = ox.plot_graph_folium(dif_masked_cycle, popup_attribute='vis_data', graph_map=m, color="green", edge_width=2, prefer_canvas=True)
     except Exception as e:
         print(str(e))
     try:
-        m = ox.plot_graph_folium(dif_masked_road, popup_attribute='vis_data', graph_map=m, color="red", edge_width=2)
+        m = ox.plot_graph_folium(dif_masked_road, popup_attribute='vis_data', graph_map=m, color="red", edge_width=2, prefer_canvas=True)
     except Exception as e:
         print(str(e))
     m.save(f"./visu/{name}_masks.html")
@@ -84,7 +83,7 @@ if __name__ == "__main__":
     #options
     ox_graph_name = "Wrocław_Polska_recent.xml"
     dgl_graph_name = "Wroclaw_Polska_recent_masks.graph"
-    mask_to_visualise = 'test_mask' # 3 options train, dev, test
+    mask_to_visualise = 'train_mask' # 3 options train, dev, test
 
     graph_ox = ox.io.load_graphml("./data_raw/" + ox_graph_name)
     dgl_graph = load_graphs("./data_transformed/" + dgl_graph_name)[0][0]

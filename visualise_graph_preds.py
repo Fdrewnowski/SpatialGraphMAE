@@ -16,7 +16,7 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
     
     mask_ids = ((mask == True).nonzero(as_tuple=True)[0]).tolist()
     pred_ids = ((preds == True).nonzero(as_tuple=True)[0]).tolist()
-    
+
     year = str(2022)
     dif_masked_cycle = nx.create_empty_copy(grapf_networkx)
     dif_masked_road = dif_masked_cycle.copy()
@@ -27,10 +27,10 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
     
     for idx, x in enumerate(tqdm(set(grapf_networkx.edges()), total = len(set(grapf_networkx.edges())))):
         edge = grapf_networkx[x[0]][x[1]][0]
-        print(edge)
-        if edge['idx'] in mask_ids: 
+        #print(edge)
+        if int(edge['idx']) in mask_ids: 
             dif_attributes = edge.copy()
-            if dif_attributes['label'] == 1 and edge['id'] in pred_ids: #if cycle
+            if int(dif_attributes['label']) == 1 and int(edge['idx']) in pred_ids: #if cycle
                 vis_data = dict(
                 href=f"https://www.openstreetmap.org/way/{edge['osmid']}", 
                 years=['cycle', 'masked'], 
@@ -39,7 +39,7 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
                 vis_data['data'] = {year:[dif_attributes['label'],True]}
                 dif_attributes['vis_data'] = vis_data
                 dif_masked_cycle.add_edges_from([(x[0], x[1], dif_attributes)])
-            elif edge['idx'] in pred_ids:
+            elif int(edge['idx']) in pred_ids:
                 vis_data = dict(
                 href=f"https://www.openstreetmap.org/way/{edge['osmid']}", 
                 years=['cycle', 'masked'], 
@@ -83,7 +83,7 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
     except Exception as e:
         print("Error in pred as new cycle" + str(e))
 
-    m.save(f"./visu/{name}_masks.html")
+    m.save(f"./visu/{name}.html")
 
 
 
@@ -101,7 +101,8 @@ if __name__ == "__main__":
         predictions = pickle.load(handle)
         predictions = predictions.max(1)[1].type_as(dgl_graph.ndata[mask_to_visualise])
 
-    _show_preds(graph_ox, predictions, dgl_graph.ndata[mask_to_visualise] , prediction_file.split('.')[0])
+
+    _show_preds(graph_ox, dgl_graph.ndata[mask_to_visualise], predictions , prediction_file.split('.')[0])
 
 
 
