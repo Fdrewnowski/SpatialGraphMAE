@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
 
@@ -77,8 +78,10 @@ def train_transductive(args):
         set_random_seed(seed)
 
         if logs:
-            logger = TBLogger(
-                name=f"{dataset_name}_loss_{loss_fn}_rpr_{replace_rate}_nh_{num_hidden}_nl_{num_layers}_lr_{lr}_mp_{max_epoch}_mpf_{max_epoch_f}_wd_{weight_decay}_wdf_{weight_decay_f}_{encoder_type}_{decoder_type}")
+            #logger = TBLogger(
+            #    name=f"{dataset_name}_loss_{loss_fn}_rpr_{replace_rate}_nh_{num_hidden}_nl_{num_layers}_lr_{lr}_mp_{max_epoch}_mpf_{max_epoch_f}_wd_{weight_decay}_wdf_{weight_decay_f}_{encoder_type}_{decoder_type}")
+            current_time = datetime.now().strftime("%H:%M:%S")
+            logger = TBLogger(name=f"{dataset_name}_{current_time}")
         else:
             logger = None
 
