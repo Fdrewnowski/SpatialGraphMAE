@@ -9,9 +9,9 @@ from dgl.data.utils import load_graphs
 from dgl.heterograph import DGLHeteroGraph
 from tqdm import tqdm
 
-from graphmae.datasets.data_util import load_dataset
 from graphmae.evaluation import node_classification_evaluation
 from graphmae.models import build_model
+from graphmae.models.edcoder import PreModel
 from graphmae.utils import (TBLogger, build_args, create_optimizer,
                             get_current_lr, load_best_configs, set_random_seed)
 from main_transform_raw_bikeguessr import DATA_OUTPUT, _sizeof_fmt
@@ -67,7 +67,7 @@ def train_transductive(args):
     use_scheduler = args.scheduler
 
     graphs, (num_features, num_classes) = load_bikeguessr_dataset(
-        'bikeguessr_merged_masks.graph')
+        r'C:\Users\jbelter\VisualCodeProjects\SpatialGraphMAE\data_transformed\14af828816524a98b4ec85f4cae30389_masks.graph')
     args.num_features = num_features
 
     acc_list = []
@@ -115,7 +115,7 @@ def train_transductive(args):
         model.eval()
 
         for g, x in zip(graphs, X):
-            final_acc, estp_acc = node_classification_evaluation(
+            final_acc, estp_acc, _ = node_classification_evaluation(
                 model, g, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, linear_prob)
             acc_list.append(final_acc)
             estp_acc_list.append(estp_acc)
@@ -129,13 +129,26 @@ def train_transductive(args):
     logging.info(f"# early-stopping_acc: {estp_acc:.4f}±{estp_acc_std:.4f}")
 
 
-def pretrain(model, graphs: List[DGLHeteroGraph], feats: List[torch.Tensor], optimizer, max_epoch, device, scheduler, num_classes, lr_f, weight_decay_f, max_epoch_f, linear_prob, logger=None):
+def pretrain(model: PreModel,
+             graphs: List[DGLHeteroGraph],
+             feats: List[torch.Tensor],
+             optimizer: torch.optim.Optimizer,
+             max_epoch: int,
+             device: torch.device,
+             scheduler: torch.optim.lr_scheduler.LambdaLR,
+             num_classes: int,
+             lr_f: float,
+             weight_decay_f: float,
+             max_epoch_f: int,
+             linear_prob: bool,
+             logger: TBLogger = None):
     logging.info("start training..")
     epoch_iter = tqdm(range(max_epoch))
 
     for epoch in epoch_iter:
-        for g, feat in zip(graphs, feats):
-            g = g.to(device)
+        epoch_f1_scores_train, epoch_f1_scores_val, epoch_f1_scores_test, epoch_loss = [], [], [], []
+        for graph, feat in zip(graphs, feats):
+            g = graph.to(device)
             x = feat.to(device)
             model.train()
 
@@ -149,13 +162,22 @@ def pretrain(model, graphs: List[DGLHeteroGraph], feats: List[torch.Tensor], opt
 
             epoch_iter.set_description(
                 f"# Epoch {epoch}: train_loss: {loss.item():.4f}")
-            if logger is not None:
-                loss_dict["lr"] = get_current_lr(optimizer)
-                logger.note(loss_dict, step=epoch)
+            epoch_loss.append(loss.cpu().detach().numpy())
 
-            if (epoch + 1) % 200 == 0:
-                node_classification_evaluation(
-                    model, g, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, linear_prob, mute=True)
+            if (epoch + 1) % 4 == 0:
+                _, _, f1_scores = node_classification_evaluation(
+                    model, g, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, epoch, linear_prob, mute=True)
+                epoch_f1_scores_train.append(f1_scores[0])
+                epoch_f1_scores_val.append(f1_scores[1])
+                epoch_f1_scores_test.append(f1_scores[2])
+        if logger is not None:
+            logging_dict = {}
+            logging_dict['Loss/train'] = np.mean(epoch_loss)
+            if (epoch + 1) % 4 == 0:
+                logging_dict['F1/train'] = np.mean(epoch_f1_scores_train)
+                logging_dict['F1/test'] = np.mean(epoch_f1_scores_test)
+                logging_dict['F1/val'] = np.mean(epoch_f1_scores_val)
+            logger.note(logging_dict, step=epoch)
 
     # return best_model
     return model
@@ -166,7 +188,8 @@ if __name__ == '__main__':
     args.dataset = 'bikeguessr'
     if args.use_cfg:
         args = load_best_configs(args, "configs.yml")
-    args.save_model = False
-    args.load_model = True
+    args.save_model = True
+    args.load_model = False
     print(args)
     train_transductive(args)
+    # TENSORBOARD_WRITER.close()

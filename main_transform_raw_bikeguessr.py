@@ -73,7 +73,7 @@ def save_bikeguessr(path: str, graph: DGLHeteroGraph, scaler: StandardScaler = N
     parent = str(Path(path).parent.parent.absolute())
     stem = str(Path(path).stem)
     graph_file = os.path.join(
-        parent, DATA_OUTPUT, uuid.uuid4().hex + '_masks.graph')
+        parent, DATA_OUTPUT, uuid.uuid4().hex + '.bin')
     save_graphs(graph_file, graph)
     if scaler is not None:
         scaler_file = os.path.join(parent, DATA_OUTPUT, stem + '_scaler.pkl')
