@@ -11,7 +11,7 @@ from dgl.data.utils import load_graphs
 import pickle
 
 
-def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name: str):
+def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name: str, popup: bool):
     assert grapf_networkx.number_of_edges() == mask.shape[0]
     
     mask_ids = ((mask == True).nonzero(as_tuple=True)[0]).tolist()
@@ -25,7 +25,7 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
     diff_unmasked = dif_masked_cycle.copy()
     
     
-    for idx, x in enumerate(tqdm(set(grapf_networkx.edges()), total = len(set(grapf_networkx.edges())))):
+    for x in tqdm(set(grapf_networkx.edges()), total = len(set(grapf_networkx.edges()))):
         edge = grapf_networkx[x[0]][x[1]][0]
         #print(edge)
         if int(edge['idx']) in mask_ids: 
@@ -38,6 +38,8 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
                 )
                 vis_data['data'] = {year:[dif_attributes['label'],True]}
                 dif_attributes['vis_data'] = vis_data
+                if not popup:
+                    dif_attributes = None
                 dif_masked_cycle.add_edges_from([(x[0], x[1], dif_attributes)])
             elif int(edge['idx']) in pred_ids:
                 vis_data = dict(
@@ -47,6 +49,8 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
                 )
                 vis_data['data'] = {year:[dif_attributes['label'],True]}
                 dif_attributes['vis_data'] = vis_data
+                if not popup:
+                    dif_attributes = None
                 dif_masked_different.add_edges_from([(x[0], x[1], dif_attributes)])
             else: #if not cycle
                 vis_data = dict(
@@ -56,6 +60,8 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
                 )
                 vis_data['data'] = {year:[dif_attributes['label'],True]}
                 dif_attributes['vis_data'] = vis_data
+                if not popup:
+                    dif_attributes = None
                 dif_masked_road.add_edges_from([(x[0], x[1], dif_attributes)])
         else:
             vis_data = dict(
@@ -67,23 +73,37 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
             vis_data['data'] = {year:[dif_attributes['label'],False]}
 
             dif_attributes['vis_data'] = vis_data
+            if not popup:
+                dif_attributes = None
             diff_unmasked.add_edges_from([(x[0], x[1], dif_attributes)])
-            
-    m = ox.plot_graph_folium(diff_unmasked, popup_attribute='vis_data', color="blue", edge_width=1)
+
+    if not popup:
+        m = ox.plot_graph_folium(diff_unmasked, color="blue", edge_width=1)
+    else:
+        m = ox.plot_graph_folium(diff_unmasked, popup_attribute='vis_data', color="blue", edge_width=1)
     try:
-        m = ox.plot_graph_folium(dif_masked_different, popup_attribute='vis_data', graph_map=m, color="orange", edge_width=2)
+        if not popup:
+            m = ox.plot_graph_folium(dif_masked_different, graph_map=m, color="orange", edge_width=1)
+        else:
+            m = ox.plot_graph_folium(dif_masked_different, popup_attribute='vis_data', graph_map=m, color="orange", edge_width=2)
     except Exception as e:
         print("Error in pred as noncycleway" + str(e))
     try:
-        m = ox.plot_graph_folium(dif_masked_cycle, popup_attribute='vis_data', graph_map=m, color="green", edge_width=2)
+        if not popup:
+            m = ox.plot_graph_folium(dif_masked_cycle, graph_map=m, color="green", edge_width=1)
+        else:
+            m = ox.plot_graph_folium(dif_masked_cycle, popup_attribute='vis_data', graph_map=m, color="green", edge_width=2)
     except Exception as e:
         print("Error in pred as true cycle" + str(e))
     try:
-        m = ox.plot_graph_folium(dif_masked_road, popup_attribute='vis_data', graph_map=m, color="red", edge_width=2)
+        if not popup:
+            m = ox.plot_graph_folium(dif_masked_road, graph_map=m, color="red", edge_width=1)
+        else:
+            m = ox.plot_graph_folium(dif_masked_road, popup_attribute='vis_data', graph_map=m, color="red", edge_width=2)
     except Exception as e:
         print("Error in pred as new cycle" + str(e))
 
-    m.save(f"./visu/{name}.html")
+    m.save(f"./visu/{name}_{str(popup)}.html")
 
 
 
@@ -102,7 +122,7 @@ if __name__ == "__main__":
         predictions = predictions.max(1)[1].type_as(dgl_graph.ndata[mask_to_visualise])
 
 
-    _show_preds(graph_ox, dgl_graph.ndata[mask_to_visualise], predictions , prediction_file.split('.')[0])
+    _show_preds(graph_ox, dgl_graph.ndata[mask_to_visualise], predictions , prediction_file.split('.')[0], False)
 
 
 
