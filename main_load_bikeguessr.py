@@ -21,7 +21,7 @@ logging.basicConfig(
 
 SELECTED_KEYS = ['oneway', 'lanes', 'highway', 'maxspeed',
                  'length', 'access', 'bridge', 'junction',
-                 'width', 'service', 'tunnel', 'label']  # not used 'cycleway', 'bycycle']
+                 'width', 'service', 'tunnel', 'label', 'idx']  # not used 'cycleway', 'bycycle']
 DEFAULT_VALUES = {'oneway': False, 'lanes': 2, 'highway': 11, 'maxspeed': 50,
                   'length': 0, 'access': 6, 'bridge': 0, 'junction': 0,
                   'width': 2, 'service': 0, 'tunnel': 0}
@@ -77,6 +77,7 @@ def _load_transform_linegraph(path: str) -> DGLHeteroGraph:
     raw_graphml = ox.io.load_graphml(path)
     encoded_graphml = _encode_data(raw_graphml)
     seen_values = _get_all_key_and_unique_values(encoded_graphml)
+    #encoded_graphml = _generate_id(encoded_graphml)
     #print(encoded_graphml[95584835][6152142174])
     #print(seen_values['label'])
     #labels_graphml = _generate_cycle_label(
@@ -186,11 +187,25 @@ def _generate_cycle_label(graph_nx: MultiDiGraph, highway_coding: Dict = {}) -> 
                     graph_edge['label'] = 0
     return graph_nx_copy
 
+def _generate_id(graph_nx: MultiDiGraph) -> MultiDiGraph:
+    graph_nx_copy = graph_nx.copy()
+    edge_id = 0
+    for edge in graph_nx.edges():
+        for connection in graph_nx[edge[0]][edge[1]].keys():
+            for key, val in graph_nx[edge[0]][edge[1]][connection].items():
+                graph_edge = graph_nx_copy[edge[0]][edge[1]][connection]
+                graph_edge['idx'] = edge_id
+        edge_id += 1
+
+    return graph_nx_copy
+
 
 def _convert_nx_to_dgl_as_linegraph(graph_nx: MultiDiGraph, selected_keys: List = SELECTED_KEYS) -> DGLHeteroGraph:
     selected_keys.remove('label')
+    selected_keys.remove('idx')
+
     graph_dgl = dgl.from_networkx(
-        graph_nx, edge_attrs=(selected_keys + ['label']))
+        graph_nx, edge_attrs=(selected_keys + ['label', 'idx']))
     graph_dgl_line_graph = dgl.line_graph(graph_dgl)
     # populate linegraph with nodes
 
@@ -199,6 +214,7 @@ def _convert_nx_to_dgl_as_linegraph(graph_nx: MultiDiGraph, selected_keys: List 
     graph_dgl_line_graph.ndata['feat'] = torch.cat(
         features_to_line_graph).reshape((-1, len(selected_keys)))
     graph_dgl_line_graph.ndata['label'] = graph_dgl.edata['label'].type(torch.LongTensor)
+    graph_dgl_line_graph.ndata['idx'] = graph_dgl.edata['idx']
     return graph_dgl_line_graph
 
 
