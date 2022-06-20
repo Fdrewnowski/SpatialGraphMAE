@@ -1,7 +1,7 @@
+import argparse
 import logging
 import os
 import random
-import uuid
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -39,6 +39,16 @@ DATA_INPUT = 'data_raw'
 DATA_OUTPUT = 'data_transformed'
 
 
+def build_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description='bikeguessr_transform')
+    data_to_transform = parser.add_mutually_exclusive_group(required=True)
+    data_to_transform.add_argument('-a', '--all', action='store_true')
+    data_to_transform.add_argument('-s', '--single', action='store_true')
+    parser.add_argument('-p', '--path', type=str, default=None)
+    return parser.parse_args()
+
+
 def load_transform_dir_bikeguessr(directory: str = None, save: bool = True) -> None:
     logging.info('load bikeguessr directory')
     if directory is None:
@@ -71,7 +81,7 @@ def save_bikeguessr(path: str, graph: DGLHeteroGraph) -> None:
     logging.info('saving bikeguessr graph')
     parent = str(Path(path).parent.parent.absolute())
     graph_file = os.path.join(
-        parent, DATA_OUTPUT, uuid.uuid4().hex + '.bin')
+        parent, DATA_OUTPUT, 'bikeguessr.bin')
     save_graphs(graph_file, graph)
 
 
@@ -235,7 +245,7 @@ def _get_random_split(number_of_nodes, train_size_coef=0.05, val_size_coef=0.18,
     return split_idx
 
 
-def _get_stratified_split(labels, train_bicycle_coef=0.2, val_bicycle_coef=0.3, test_bicycle_coef=0.4):
+def _get_stratified_split(labels, train_bicycle_coef=0.3, val_bicycle_coef=0.4, test_bicycle_coef=0.5):
     number_of_nodes = labels.shape[0]
     cycle_ids = ((labels == True).nonzero(as_tuple=True)[0]).tolist()
     number_of_cycle = len(cycle_ids)
@@ -276,47 +286,6 @@ def _randome_sample_with_exceptions(max_range, size, exceptions):
     return random.sample(not_cycle, size)
 
 
-def randome_sample_with_exceptions(max_range, size, exceptions):
-    not_cycle = list(range(0, max_range))
-    for elem in exceptions:
-        not_cycle.remove(elem)
-    return random.sample(not_cycle, size)
-
-
-def _get_stratified_split(labels, train_bicycle_coef=0.3, val_bicycle_coef=0.4, test_bicycle_coef=0.5):
-    number_of_nodes = labels.shape[0]
-    cycle_ids = ((labels == True).nonzero(as_tuple=True)[0]).tolist()
-    number_of_cycle = len(cycle_ids)
-    train_size = int(number_of_cycle * train_bicycle_coef)
-    val_size = int(number_of_cycle * val_bicycle_coef)
-    test_size = int(number_of_cycle * test_bicycle_coef)
-
-    assert number_of_cycle > train_size
-    assert number_of_cycle > val_size
-    assert number_of_cycle > test_size
-
-    split_idx = {}
-    train_cycle_idx = random.sample(cycle_ids, train_size)
-    train_noncycle_idx = randome_sample_with_exceptions(
-        number_of_nodes, train_size, cycle_ids)
-    split_idx['train'] = train_cycle_idx + train_noncycle_idx
-    split_idx['train'].sort()
-
-    val_cycle_idx = random.sample(cycle_ids, val_size)
-    val_noncycle_idx = randome_sample_with_exceptions(
-        number_of_nodes, val_size, cycle_ids)
-    split_idx['valid'] = val_cycle_idx + val_noncycle_idx
-    split_idx['valid'].sort()
-
-    test_cycle_idx = random.sample(cycle_ids, test_size)
-    test_noncycle_idx = randome_sample_with_exceptions(
-        number_of_nodes, test_size, cycle_ids)
-    split_idx['test'] = test_cycle_idx + test_noncycle_idx
-    split_idx['test'].sort()
-
-    return split_idx
-
-
 def _scale_feats(x):
     scaler = StandardScaler()
     feats = x.numpy()
@@ -343,4 +312,9 @@ def _sizeof_fmt(num: int, suffix: str = "B") -> str:
 
 
 if __name__ == "__main__":
-    load_transform_dir_bikeguessr()
+    args = build_args()
+    if args.all:
+        load_transform_dir_bikeguessr(directory=args.path)
+    if args.single:
+        assert args.path is not None
+        load_transform_single_bikeguessr(path=args.path)

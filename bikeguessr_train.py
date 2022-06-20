@@ -46,6 +46,7 @@ def train_transductive(args):
     logging.info("using device: {}".format(device))
     seeds = args.seeds
     dataset_name = args.dataset
+    dataset_path = args.path
     max_epoch = args.max_epoch
     max_epoch_f = args.max_epoch_f
 
@@ -61,8 +62,7 @@ def train_transductive(args):
     logs = args.logging
     use_scheduler = args.scheduler
 
-    graphs, (num_features, num_classes) = load_bikeguessr_dataset(
-        r'C:\Users\jbelter\VisualCodeProjects\SpatialGraphMAE\data_transformed\d524a37ce0fc4a2bb030afdc718fddb0.bin')
+    graphs, (num_features, num_classes) = load_bikeguessr_dataset(dataset_path)
     args.num_features = num_features
 
     acc_list = []
@@ -199,11 +199,8 @@ def pretrain(model: PreModel,
 
 if __name__ == '__main__':
     args = build_args()
-    args.dataset = 'bikeguessr'
     if args.use_cfg:
         args = load_best_configs(args, "configs.yml")
-    args.save_model = True
-    args.load_model = True
     print(args)
     train_transductive(args)
     # TENSORBOARD_WRITER.close()

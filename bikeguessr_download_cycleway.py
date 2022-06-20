@@ -1,6 +1,17 @@
+import argparse
+
 import networkx as nx
 import osmnx as ox
 from tqdm import tqdm
+
+
+def build_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description='bikeguessr_download_cycleway')
+    data_to_download = parser.add_mutually_exclusive_group(required=True)
+    data_to_download.add_argument('-a', '--all', action='store_true')
+    data_to_download.add_argument('-w', '--wroclaw', action='store_true')
+    data_to_download.add_argument('-g', '--gdansk', action='store_true')
+    return parser.parse_args()
 
 
 def download_graph(place: str):
@@ -43,24 +54,32 @@ def download_graph(place: str):
 
 
 if __name__ == "__main__":
-    places_to_download = ["Wrocław, województwo dolnośląskie, Polska"]
-    #  "Gdańsk, województwo pomorskie, Polska",
-    #  "Berlin, Niemcy",
-    #  "Mediolan, Lombardia, Włochy"] #,
-    #   "Amsterdam, Holandia Północna, Niderlandy, Holandia",
-    #   "Poznań, województwo wielkopolskie, Polska",
-    #   "Warszawa, województwo mazowieckie, Polska",
-    #   "Kraków, województwo małopolskie, Polska",
-    #   "Londyn, Greater London, Anglia, Wielka Brytania",
-    #   "Budapeszt, Środkowe Węgry, Węgry",
-    #   "Sztokholm, Solna kommun, Stockholm County, Szwecja",
-    #   "Oslo, Norwegia",
-    #   "Wilno, Samorząd miasta Wilna, Okręg wileński, Litwa",
-    #   "Bruksela, Brussels-Capital, Belgia"'
-    #   "Paryż, Ile-de-France, Francja metropolitalna, Francja",
-    #   "Rzym, Roma Capitale, Lacjum, Włochy",
-    #   "Florencja, Metropolitan City of Florence, Toskania, Włochy",
-    #   "Bolonia, Emilia-Romania, Włochy"
-    #   ]
+    args = build_args()
+    places_to_download = []
+    if args.all:
+        places_to_download = ["Wrocław, województwo dolnośląskie, Polska",
+            "Gdańsk, województwo pomorskie, Polska",
+            "Berlin, Niemcy",
+            "Mediolan, Lombardia, Włochy",
+            "Amsterdam, Holandia Północna, Niderlandy, Holandia",
+            "Poznań, województwo wielkopolskie, Polska",
+            "Warszawa, województwo mazowieckie, Polska",
+            "Kraków, województwo małopolskie, Polska",
+            "Londyn, Greater London, Anglia, Wielka Brytania",
+            "Budapeszt, Środkowe Węgry, Węgry",
+            "Sztokholm, Solna kommun, Stockholm County, Szwecja",
+            "Oslo, Norwegia",
+            "Wilno, Samorząd miasta Wilna, Okręg wileński, Litwa",
+            "Bruksela, Brussels-Capital, Belgia",
+            "Paryż, Ile-de-France, Francja metropolitalna, Francja",
+            "Rzym, Roma Capitale, Lacjum, Włochy",
+            "Florencja, Metropolitan City of Florence, Toskania, Włochy",
+            "Bolonia, Emilia-Romania, Włochy"
+            ]
+    if args.wroclaw:
+        places_to_download = ["Wrocław, województwo dolnośląskie, Polska"]
+    if args.gdansk:
+        places_to_download = ["Gdańsk, województwo pomorskie, Polska"]
+    
     for place in tqdm(places_to_download, total=len(places_to_download)):
         download_graph(place)
