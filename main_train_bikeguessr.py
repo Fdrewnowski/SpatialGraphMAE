@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
 
@@ -9,56 +10,40 @@ from dgl.data.utils import load_graphs
 from dgl.heterograph import DGLHeteroGraph
 from tqdm import tqdm
 
-from graphmae.datasets.data_util import load_dataset
 from graphmae.evaluation import node_classification_evaluation
 from graphmae.models import build_model
+from graphmae.models.edcoder import PreModel
 from graphmae.utils import (TBLogger, build_args, create_optimizer,
-                            load_best_configs, set_random_seed)
-from main_load_bikeguessr import DATA_OUTPUT, _sizeof_fmt
-from main_transductive import build_args, load_best_configs, pretrain
+                            get_current_lr, load_best_configs, set_random_seed)
+from main_transform_raw_bikeguessr import DATA_OUTPUT, _sizeof_fmt
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 
-def load_bikeguessr_dataset(directory: str = None) -> Tuple[DGLHeteroGraph, Tuple[int, int]]:
+def load_bikeguessr_dataset(filename: str, directory: str = None) -> Tuple[List[DGLHeteroGraph], Tuple[int, int]]:
     logging.info('load bikeguessr dataset')
     if directory is None:
         directory = os.path.join(os.getcwd(), DATA_OUTPUT)
-    found_files = list(Path(directory).glob('*.graph'))
-    for path in found_files:
-        logging.info('processing: ' + str(path.stem) +
-                     ' size: ' + _sizeof_fmt(os.path.getsize(path)))
-        graph = load_graphs(str(path), [0])[0][0]
-        print(graph)
-        graph = graph.remove_self_loop()
-        graph = graph.add_self_loop()
-        num_features = graph.ndata["feat"].shape[1]
-        num_classes = 2
-        return graph, (num_features, num_classes)
+    file = Path(directory, filename)
 
-def load_bikeguessr_dataset_all() -> Tuple[List[DGLHeteroGraph], Tuple[int, int]]:
-    logging.info('load bikeguessr dataset')
-    graphs = []
-    if directory is None:
-        directory = os.path.join(os.getcwd(), DATA_OUTPUT)
-    found_files = list(Path(directory).glob('*.graph'))
-    for path in tqdm(found_files):
-        logging.info('processing: ' + str(path.stem) +
-                     ' size: ' + _sizeof_fmt(os.path.getsize(path)))
-        
-        graph = load_graphs(path, [0])[0][0]
-        print(graph)
-        graph = graph.remove_self_loop()
-        graph = graph.add_self_loop()
-        num_features = graph.ndata["feat"].shape[1]
-        num_classes = 2
-        graphs.append(graph)
+    logging.info('processing: ' + str(file.stem) +
+                 ' size: ' + _sizeof_fmt(os.path.getsize(file)))
+    graphs, _ = load_graphs(str(file))
+    num_features, num_classes = [], []
+    for i in range(len(graphs)):
+        graphs[i] = graphs[i].remove_self_loop()
+        graphs[i] = graphs[i].add_self_loop()
+    num_features = graphs[i].ndata["feat"].shape[1]
+    num_classes = 2
+
     return graphs, (num_features, num_classes)
 
 
 def train_transductive(args):
-    device = args.device if args.device >= 0 else "cpu"
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #device = 'cpu'
+    logging.info("using device: {}".format(device))
     seeds = args.seeds
     dataset_name = args.dataset
     max_epoch = args.max_epoch
@@ -82,7 +67,8 @@ def train_transductive(args):
     logs = args.logging
     use_scheduler = args.scheduler
 
-    graph, (num_features, num_classes) = load_bikeguessr_dataset()
+    graphs, (num_features, num_classes) = load_bikeguessr_dataset(
+        r'C:\Users\jbelter\VisualCodeProjects\SpatialGraphMAE\data_transformed\d524a37ce0fc4a2bb030afdc718fddb0.bin')
     args.num_features = num_features
 
     acc_list = []
@@ -92,8 +78,10 @@ def train_transductive(args):
         set_random_seed(seed)
 
         if logs:
-            logger = TBLogger(
-                name=f"{dataset_name}_loss_{loss_fn}_rpr_{replace_rate}_nh_{num_hidden}_nl_{num_layers}_lr_{lr}_mp_{max_epoch}_mpf_{max_epoch_f}_wd_{weight_decay}_wdf_{weight_decay_f}_{encoder_type}_{decoder_type}")
+            #logger = TBLogger(
+            #    name=f"{dataset_name}_loss_{loss_fn}_rpr_{replace_rate}_nh_{num_hidden}_nl_{num_layers}_lr_{lr}_mp_{max_epoch}_mpf_{max_epoch_f}_wd_{weight_decay}_wdf_{weight_decay_f}_{encoder_type}_{decoder_type}")
+            current_time = datetime.now().strftime("%H_%M_%S")
+            logger = TBLogger(name=f"{dataset_name}_{current_time}")
         else:
             logger = None
 
@@ -113,9 +101,9 @@ def train_transductive(args):
         else:
             scheduler = None
 
-        x = graph.ndata["feat"]
+        X = [g.ndata['feat'] for g in graphs]
         if not load_model:
-            model = pretrain(model, graph, x, optimizer, max_epoch, device, scheduler,
+            model = pretrain(model, graphs, X, optimizer, max_epoch, device, scheduler,
                              num_classes, lr_f, weight_decay_f, max_epoch_f, linear_prob, logger)
             model = model.cpu()
 
@@ -129,18 +117,89 @@ def train_transductive(args):
         model = model.to(device)
         model.eval()
 
-        final_acc, estp_acc = node_classification_evaluation(
-            model, graph, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, linear_prob)
-        acc_list.append(final_acc)
-        estp_acc_list.append(estp_acc)
+        for g, x in zip(graphs, X):
+            final_acc, estp_acc, _ = node_classification_evaluation(
+                model, g, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, linear_prob)
+            acc_list.append(final_acc)
+            estp_acc_list.append(estp_acc)
 
         if logger is not None:
             logger.finish()
 
     final_acc, final_acc_std = np.mean(acc_list), np.std(acc_list)
     estp_acc, estp_acc_std = np.mean(estp_acc_list), np.std(estp_acc_list)
-    print(f"# final_acc: {final_acc:.4f}±{final_acc_std:.4f}")
-    print(f"# early-stopping_acc: {estp_acc:.4f}±{estp_acc_std:.4f}")
+    logging.info(f"# final_acc: {final_acc:.4f}±{final_acc_std:.4f}")
+    logging.info(f"# early-stopping_acc: {estp_acc:.4f}±{estp_acc_std:.4f}")
+
+
+def _is_same_model(model: PreModel, other_model: PreModel):
+    for p1, p2 in zip(model.parameters(), other_model.parameters()):
+        if p1.data.ne(p2.data).sum() > 0:
+            return False
+    return True
+
+def pretrain(model: PreModel,
+             graphs: List[DGLHeteroGraph],
+             feats: List[torch.Tensor],
+             optimizer: torch.optim.Optimizer,
+             max_epoch: int,
+             device: torch.device,
+             scheduler: torch.optim.lr_scheduler.LambdaLR,
+             num_classes: int,
+             lr_f: float,
+             weight_decay_f: float,
+             max_epoch_f: int,
+             linear_prob: bool,
+             logger: TBLogger = None,
+             eval_epoch: int = 10):
+    logging.info("start training..")
+    epoch_iter = tqdm(range(max_epoch))
+    best_test_f1_score = 0.0
+    best_model = None
+    for epoch in epoch_iter:
+        epoch_f1_scores_train, epoch_f1_scores_val, epoch_f1_scores_test, epoch_loss = [], [], [], []
+        for graph, feat in zip(graphs, feats):
+            g = graph.to(device)
+            x = feat.to(device)
+            model.train()
+
+            loss, _ = model(g, x)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            if scheduler is not None:
+                scheduler.step()
+
+            epoch_iter.set_description(
+                f"# Epoch {epoch}: train_loss: {loss.item():.4f}")
+            epoch_loss.append(loss.cpu().detach().numpy())
+
+            if (epoch + 1) % eval_epoch == 0:
+                _, _, f1_scores = node_classification_evaluation(
+                    model, g, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, epoch, linear_prob, mute=True)
+                epoch_f1_scores_train.append(f1_scores[0])
+                epoch_f1_scores_val.append(f1_scores[1])
+                epoch_f1_scores_test.append(f1_scores[2])
+        if (epoch + 1) % eval_epoch == 0:
+            if best_test_f1_score < np.mean(epoch_f1_scores_test):
+                best_test_f1_score = np.mean(epoch_f1_scores_test)
+                torch.save(model, "best_f1_score_model.pt")
+                best_model = torch.load("best_f1_score_model.pt")
+
+        if logger is not None:
+            logging_dict = {}
+            logging_dict['Loss/train'] = np.mean(epoch_loss)
+            if (epoch + 1) % eval_epoch == 0:
+                logging_dict['F1/train'] = np.mean(epoch_f1_scores_train)
+                logging_dict['F1/test'] = np.mean(epoch_f1_scores_test)
+                logging_dict['F1/val'] = np.mean(epoch_f1_scores_val)
+            logger.note(logging_dict, step=epoch)
+
+    if _is_same_model(best_model, model):
+        logging.warn('Best model and currently trained model are identical')
+    # return best_model
+    return best_model
 
 
 if __name__ == '__main__':
@@ -148,5 +207,8 @@ if __name__ == '__main__':
     args.dataset = 'bikeguessr'
     if args.use_cfg:
         args = load_best_configs(args, "configs.yml")
+    args.save_model = True
+    args.load_model = False
     print(args)
     train_transductive(args)
+    # TENSORBOARD_WRITER.close()

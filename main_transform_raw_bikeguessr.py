@@ -2,9 +2,9 @@ import logging
 import os
 import pickle
 import random
-# From paper
+import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 import dgl
 import osmnx as ox
@@ -45,10 +45,15 @@ def load_directory_bikeguessr(directory: str = None, save: bool = True) -> None:
     if directory is None:
         directory = os.path.join(os.getcwd(), DATA_INPUT)
     found_files = list(Path(directory).glob('*.xml'))
+    graphs = []
     for path in tqdm(found_files):
         logging.info('processing: ' + str(path.stem) +
                      ' size: ' + _sizeof_fmt(os.path.getsize(path)))
-        load_single_bikeguessr(path, True)
+        graph, _ = load_single_bikeguessr(path, False)
+        graphs.append(graph)
+    logging.info('merging bikeguessr graphs')
+
+    save_bikeguessr(Path(path.parent, 'bikeguessr_merged'), graphs)
     logging.info('end load bikeguessr directory')
 
 
@@ -63,14 +68,17 @@ def load_single_bikeguessr(path: str, save: bool = True) -> Tuple[DGLHeteroGraph
     return bikeguessr_linegraph_with_masks, scaler
 
 
-def save_bikeguessr(path: str, graph: DGLHeteroGraph, scaler: StandardScaler) -> None:
+def save_bikeguessr(path: str, graph: DGLHeteroGraph, scaler: StandardScaler = None) -> None:
+    logging.info('saving bikeguessr graph')
     parent = str(Path(path).parent.parent.absolute())
     stem = str(Path(path).stem)
-    graph_file = os.path.join(parent, DATA_OUTPUT, stem + '_masks.graph')
-    scaler_file = os.path.join(parent, DATA_OUTPUT, stem + '_scaler.pkl')
+    graph_file = os.path.join(
+        parent, DATA_OUTPUT, uuid.uuid4().hex + '.bin')
     save_graphs(graph_file, graph)
-    with open(scaler_file, 'wb+') as handle:
-        pickle.dump(scaler, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    if scaler is not None:
+        scaler_file = os.path.join(parent, DATA_OUTPUT, stem + '_scaler.pkl')
+        with open(scaler_file, 'wb+') as handle:
+            pickle.dump(scaler, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def _load_transform_linegraph(path: str) -> DGLHeteroGraph:
@@ -85,12 +93,15 @@ def _load_transform_linegraph(path: str) -> DGLHeteroGraph:
     return _convert_nx_to_dgl_as_linegraph(encoded_graphml)
 
 
-def _create_mask(graph: DGLHeteroGraph) -> Tuple[DGLHeteroGraph, List, StandardScaler]:
+def _create_mask(graph: DGLHeteroGraph, split_type: str = 'stratified') -> Tuple[DGLHeteroGraph, List, StandardScaler]:
     num_nodes = graph.num_nodes()
 
-    #split_idx = _get_random_split(num_nodes)
-    split_idx = _get_stratified_split(graph.ndata['label'])
-
+    if split_type == 'stratified':
+        split_idx = _get_stratified_split(graph.ndata['label'])
+    elif split_type == 'random':
+        split_idx = _get_random_split(num_nodes)
+    else:
+        raise NotImplementedError()
     train_idx, val_idx, test_idx = split_idx["train"], split_idx["valid"], split_idx["test"]
     graph = _preprocess(graph)
 
@@ -201,18 +212,19 @@ def _generate_id(graph_nx: MultiDiGraph) -> MultiDiGraph:
 
 
 def _convert_nx_to_dgl_as_linegraph(graph_nx: MultiDiGraph, selected_keys: List = SELECTED_KEYS) -> DGLHeteroGraph:
-    selected_keys.remove('label')
-    selected_keys.remove('idx')
+    sel_keys = selected_keys.copy()
+    sel_keys.remove('label')
+    sel_keys.remove('idx')
 
     graph_dgl = dgl.from_networkx(
-        graph_nx, edge_attrs=(selected_keys + ['label', 'idx']))
+        graph_nx, edge_attrs=(sel_keys + ['label', 'idx'])) 
     graph_dgl_line_graph = dgl.line_graph(graph_dgl)
     # populate linegraph with nodes
 
-    features_to_line_graph = [graph_dgl.edata[key] for key in selected_keys]
+    features_to_line_graph = [graph_dgl.edata[key] for key in sel_keys]
 
     graph_dgl_line_graph.ndata['feat'] = torch.cat(
-        features_to_line_graph).reshape((-1, len(selected_keys)))
+        features_to_line_graph).reshape((-1, len(sel_keys)))
     graph_dgl_line_graph.ndata['label'] = graph_dgl.edata['label'].type(torch.LongTensor)
     graph_dgl_line_graph.ndata['idx'] = graph_dgl.edata['idx']
     return graph_dgl_line_graph
@@ -268,6 +280,47 @@ def _randome_sample_with_exceptions(max_range, size, exceptions):
         not_cycle.remove(elem)
     return random.sample(not_cycle, size)
         
+
+
+def randome_sample_with_exceptions(max_range, size, exceptions):
+    not_cycle = list(range(0, max_range))
+    for elem in exceptions:
+        not_cycle.remove(elem)
+    return random.sample(not_cycle, size)
+
+
+def _get_stratified_split(labels, train_bicycle_coef=0.3, val_bicycle_coef=0.4, test_bicycle_coef=0.5):
+    number_of_nodes = labels.shape[0]
+    cycle_ids = ((labels == True).nonzero(as_tuple=True)[0]).tolist()
+    number_of_cycle = len(cycle_ids)
+    train_size = int(number_of_cycle * train_bicycle_coef)
+    val_size = int(number_of_cycle * val_bicycle_coef)
+    test_size = int(number_of_cycle * test_bicycle_coef)
+
+    assert number_of_cycle > train_size
+    assert number_of_cycle > val_size
+    assert number_of_cycle > test_size
+
+    split_idx = {}
+    train_cycle_idx = random.sample(cycle_ids, train_size)
+    train_noncycle_idx = randome_sample_with_exceptions(
+        number_of_nodes, train_size, cycle_ids)
+    split_idx['train'] = train_cycle_idx + train_noncycle_idx
+    split_idx['train'].sort()
+
+    val_cycle_idx = random.sample(cycle_ids, val_size)
+    val_noncycle_idx = randome_sample_with_exceptions(
+        number_of_nodes, val_size, cycle_ids)
+    split_idx['valid'] = val_cycle_idx + val_noncycle_idx
+    split_idx['valid'].sort()
+
+    test_cycle_idx = random.sample(cycle_ids, test_size)
+    test_noncycle_idx = randome_sample_with_exceptions(
+        number_of_nodes, test_size, cycle_ids)
+    split_idx['test'] = test_cycle_idx + test_noncycle_idx
+    split_idx['test'].sort()
+
+    return split_idx
 
 
 def _scale_feats(x):

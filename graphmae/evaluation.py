@@ -1,12 +1,33 @@
 import copy
-from tqdm import tqdm
+import logging
+import warnings
+
 import torch
 import torch.nn as nn
+from dgl.heterograph import DGLHeteroGraph
+from tqdm import tqdm
 
-from graphmae.utils import create_optimizer, accuracy
+from graphmae.models.edcoder import PreModel
+from graphmae.utils import accuracy, create_optimizer, f1
+
+warnings.filterwarnings("ignore", category=UserWarning)
+
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 
-def node_classification_evaluation(model, graph, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, linear_prob=True, mute=False):
+def node_classification_evaluation(
+        model: PreModel,
+        graph: DGLHeteroGraph,
+        x: torch.Tensor,
+        num_classes: int,
+        lr_f: float,
+        weight_decay_f: float,
+        max_epoch_f: float,
+        device: torch.device,
+        training_epoch: int = None,
+        linear_prob: bool = True,
+        mute: bool = False):
     model.eval()
     if linear_prob:
         with torch.no_grad():
@@ -17,17 +38,28 @@ def node_classification_evaluation(model, graph, x, num_classes, lr_f, weight_de
         encoder = model.encoder
         encoder.reset_classifier(num_classes)
 
-    num_finetune_params = [p.numel() for p in encoder.parameters() if  p.requires_grad]
+    num_finetune_params = [p.numel()
+                           for p in encoder.parameters() if p.requires_grad]
     if not mute:
-        print(f"num parameters for finetuning: {sum(num_finetune_params)}")
-    
+        logging.info(
+            f"num parameters for finetuning: {sum(num_finetune_params)}")
+
     encoder.to(device)
     optimizer_f = create_optimizer("adam", encoder, lr_f, weight_decay_f)
-    final_acc, estp_acc = linear_probing_for_transductive_node_classiifcation(encoder, graph, x, optimizer_f, max_epoch_f, device, mute)
-    return final_acc, estp_acc
+    final_acc, estp_acc, f1_scores = linear_probing_for_transductive_node_classiifcation(
+        encoder, graph, x, optimizer_f, max_epoch_f, device, training_epoch, mute)
+    return final_acc, estp_acc, f1_scores
 
 
-def linear_probing_for_transductive_node_classiifcation(model, graph, feat, optimizer, max_epoch, device, mute=False):
+def linear_probing_for_transductive_node_classiifcation(
+        model: PreModel,
+        graph: DGLHeteroGraph,
+        feat: torch.Tensor,
+        optimizer: torch.optim.Optimizer,
+        max_epoch: int,
+        device: torch.device,
+        training_epoch: int = None,
+        mute: bool = False):
     criterion = torch.nn.CrossEntropyLoss()
 
     graph = graph.to(device)
@@ -63,26 +95,32 @@ def linear_probing_for_transductive_node_classiifcation(model, graph, feat, opti
             val_loss = criterion(pred[val_mask], labels[val_mask])
             test_acc = accuracy(pred[test_mask], labels[test_mask])
             test_loss = criterion(pred[test_mask], labels[test_mask])
-        
+
         if val_acc >= best_val_acc:
             best_val_acc = val_acc
             best_val_epoch = epoch
             best_model = copy.deepcopy(model)
 
         if not mute:
-            epoch_iter.set_description(f"# Epoch: {epoch}, train_loss:{loss.item(): .4f}, val_loss:{val_loss.item(): .4f}, val_acc:{val_acc}, test_loss:{test_loss.item(): .4f}, test_acc:{test_acc: .4f}")
+            epoch_iter.set_description(
+                f"# Epoch: {epoch}, train_loss:{loss.item(): .4f}, val_loss:{val_loss.item(): .4f}, val_acc:{val_acc}, test_loss:{test_loss.item(): .4f}, test_acc:{test_acc: .4f}")
 
     best_model.eval()
     with torch.no_grad():
         pred = best_model(graph, x)
         estp_test_acc = accuracy(pred[test_mask], labels[test_mask])
-    if mute:
-        print(f"# IGNORE: --- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch} --- ")
-    else:
-        print(f"--- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch} --- ")
+
+        if training_epoch is not None:
+            estp_test_f1 = f1(pred[test_mask], labels[test_mask])
+            estp_train_f1 = f1(pred[train_mask], labels[train_mask])
+            estp_val_f1 = f1(pred[val_mask], labels[val_mask])
+
+    if not mute:
+        logging.info(
+            f"--- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch} --- ")
 
     # (final_acc, es_acc, best_acc)
-    return test_acc, estp_test_acc
+    return test_acc, estp_test_acc, (estp_train_f1, estp_val_f1, estp_test_f1)
 
 
 def linear_probing_for_inductive_node_classiifcation(model, x, labels, mask, optimizer, max_epoch, device, mute=False):
@@ -99,7 +137,7 @@ def linear_probing_for_inductive_node_classiifcation(model, x, labels, mask, opt
     if not mute:
         epoch_iter = tqdm(range(max_epoch))
     else:
-        epoch_iter = range(max_epoch)  
+        epoch_iter = range(max_epoch)
 
         best_val_acc = 0
 
@@ -124,23 +162,23 @@ def linear_probing_for_inductive_node_classiifcation(model, x, labels, mask, opt
             val_loss = criterion(pred[val_mask], labels[val_mask])
             test_acc = accuracy(pred[test_mask], labels[test_mask])
             test_loss = criterion(pred[test_mask], labels[test_mask])
-        
+
         if val_acc >= best_val_acc:
             best_val_acc = val_acc
             best_val_epoch = epoch
             best_model = copy.deepcopy(model)
 
         if not mute:
-            epoch_iter.set_description(f"# Epoch: {epoch}, train_loss:{loss.item(): .4f}, val_loss:{val_loss.item(): .4f}, val_acc:{val_acc}, test_loss:{test_loss.item(): .4f}, test_acc:{test_acc: .4f}")
+            epoch_iter.set_description(
+                f"# Epoch: {epoch}, train_loss:{loss.item(): .4f}, val_loss:{val_loss.item(): .4f}, val_acc:{val_acc}, test_loss:{test_loss.item(): .4f}, test_acc:{test_acc: .4f}")
 
     best_model.eval()
     with torch.no_grad():
         pred = best_model(None, x)
         estp_test_acc = accuracy(pred[test_mask], labels[test_mask])
-    if mute:
-        print(f"# IGNORE: --- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch} ")
-    else:
-        print(f"--- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch}")
+    if not mute:
+        logging.info(
+            f"--- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch}")
 
     return test_acc, estp_test_acc
 

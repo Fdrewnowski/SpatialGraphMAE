@@ -1,21 +1,20 @@
-import os
 import argparse
-import random
-import yaml
 import logging
+import os
+import random
 from functools import partial
-import numpy as np
 
 import dgl
-
+import numpy as np
 import torch
 import torch.nn as nn
-from torch import optim as optim
+import yaml
+from sklearn.metrics import f1_score as sk_f1_score
 from tensorboardX import SummaryWriter
+from torch import optim as optim
 
-
-
-logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 
 def accuracy(y_pred, y_true):
@@ -24,6 +23,12 @@ def accuracy(y_pred, y_true):
     correct = preds.eq(y_true).double()
     correct = correct.sum().item()
     return correct / len(y_true)
+
+
+def f1(y_pred, y_true) -> float:
+    y_true = y_true.squeeze().long()
+    preds = y_pred.max(1)[1].type_as(y_true)
+    return sk_f1_score(y_true.cpu(), preds.cpu())
 
 
 def set_random_seed(seed):
@@ -77,14 +82,17 @@ def build_args():
     parser.add_argument("--encoder", type=str, default="gat")
     parser.add_argument("--decoder", type=str, default="gat")
     parser.add_argument("--loss_fn", type=str, default="byol")
-    parser.add_argument("--alpha_l", type=float, default=2, help="`pow`inddex for `sce` loss")
+    parser.add_argument("--alpha_l", type=float, default=2,
+                        help="`pow`inddex for `sce` loss")
     parser.add_argument("--optimizer", type=str, default="adam")
-    
+
     parser.add_argument("--max_epoch_f", type=int, default=30)
-    parser.add_argument("--lr_f", type=float, default=0.001, help="learning rate for evaluation")
-    parser.add_argument("--weight_decay_f", type=float, default=0.0, help="weight decay for evaluation")
+    parser.add_argument("--lr_f", type=float, default=0.001,
+                        help="learning rate for evaluation")
+    parser.add_argument("--weight_decay_f", type=float,
+                        default=0.0, help="weight decay for evaluation")
     parser.add_argument("--linear_prob", action="store_true", default=False)
-    
+
     parser.add_argument("--load_model", action="store_true")
     parser.add_argument("--save_model", action="store_true")
     parser.add_argument("--use_cfg", action="store_true", default=True)
@@ -94,7 +102,8 @@ def build_args():
 
     # for graph classification
     parser.add_argument("--pooling", type=str, default="mean")
-    parser.add_argument("--deg4feat", action="store_true", default=False, help="use node degree as input feature")
+    parser.add_argument("--deg4feat", action="store_true",
+                        default=False, help="use node degree as input feature")
     parser.add_argument("--batch_size", type=int, default=32)
     args = parser.parse_args()
     return args
@@ -126,7 +135,7 @@ def create_norm(name):
         return None
 
 
-def create_optimizer(opt, model, lr, weight_decay, get_num_layer=None, get_layer_scale=None):
+def create_optimizer(opt, model, lr, weight_decay, get_num_layer=None, get_layer_scale=None) -> torch.optim.Optimizer:
     opt_lower = opt.lower()
 
     parameters = model.parameters()
@@ -228,6 +237,7 @@ class TBLogger(object):
         for key, value in metrics.items():
             self.writer.add_scalar(key, value, step)
         self.last_step = step
+        self.writer.flush()
 
     def finish(self):
         self.writer.close()
@@ -248,7 +258,7 @@ class NormLayer(nn.Module):
             self.mean_scale = nn.Parameter(torch.ones(hidden_dim))
         else:
             raise NotImplementedError
-        
+
     def forward(self, graph, x):
         tensor = x
         if self.norm is not None and type(self.norm) != str:
@@ -259,8 +269,10 @@ class NormLayer(nn.Module):
         batch_list = graph.batch_num_nodes
         batch_size = len(batch_list)
         batch_list = torch.Tensor(batch_list).long().to(tensor.device)
-        batch_index = torch.arange(batch_size).to(tensor.device).repeat_interleave(batch_list)
-        batch_index = batch_index.view((-1,) + (1,) * (tensor.dim() - 1)).expand_as(tensor)
+        batch_index = torch.arange(batch_size).to(
+            tensor.device).repeat_interleave(batch_list)
+        batch_index = batch_index.view(
+            (-1,) + (1,) * (tensor.dim() - 1)).expand_as(tensor)
         mean = torch.zeros(batch_size, *tensor.shape[1:]).to(tensor.device)
         mean = mean.scatter_add_(0, batch_index, tensor)
         mean = (mean.T / batch_list).T

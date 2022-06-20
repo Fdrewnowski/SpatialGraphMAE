@@ -134,3 +134,5 @@ dmypy.json
 # Project data
 data_raw/
 data_transformed/
+logging_data/
+cache/
