@@ -7,8 +7,8 @@ import torch
 from dgl import DGLHeteroGraph
 from dgl.data.utils import load_graphs
 
+from bikeguessr_transform import load_transform_single_bikeguessr
 from graphmae.models.edcoder import PreModel
-from main_transform_raw_bikeguessr import load_transform_single_bikeguessr
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

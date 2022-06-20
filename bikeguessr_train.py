@@ -10,12 +10,12 @@ from dgl.data.utils import load_graphs
 from dgl.heterograph import DGLHeteroGraph
 from tqdm import tqdm
 
+from bikeguessr_transform import DATA_OUTPUT, _sizeof_fmt
 from graphmae.evaluation import node_classification_evaluation
 from graphmae.models import build_model
 from graphmae.models.edcoder import PreModel
 from graphmae.utils import (TBLogger, build_args, create_optimizer,
                             get_current_lr, load_best_configs, set_random_seed)
-from main_transform_raw_bikeguessr import DATA_OUTPUT, _sizeof_fmt
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -48,14 +48,8 @@ def train_transductive(args):
     dataset_name = args.dataset
     max_epoch = args.max_epoch
     max_epoch_f = args.max_epoch_f
-    num_hidden = args.num_hidden
-    num_layers = args.num_layers
-    encoder_type = args.encoder
-    decoder_type = args.decoder
-    replace_rate = args.replace_rate
 
     optim_type = args.optimizer
-    loss_fn = args.loss_fn
 
     lr = args.lr
     weight_decay = args.weight_decay
@@ -78,7 +72,7 @@ def train_transductive(args):
         set_random_seed(seed)
 
         if logs:
-            #logger = TBLogger(
+            # logger = TBLogger(
             #    name=f"{dataset_name}_loss_{loss_fn}_rpr_{replace_rate}_nh_{num_hidden}_nl_{num_layers}_lr_{lr}_mp_{max_epoch}_mpf_{max_epoch_f}_wd_{weight_decay}_wdf_{weight_decay_f}_{encoder_type}_{decoder_type}")
             current_time = datetime.now().strftime("%H_%M_%S")
             logger = TBLogger(name=f"{dataset_name}_{current_time}")
@@ -109,10 +103,10 @@ def train_transductive(args):
 
         if load_model:
             logging.info("Loading Model ... ")
-            model.load_state_dict(torch.load("checkpoint.pt"))
+            model.load_state_dict(torch.load("model_11_20_06.pt"))
         if save_model:
             logging.info("Saveing Model ...")
-            torch.save(model.state_dict(), "checkpoint.pt")
+            torch.save(model, "model_11_20_06.model")
 
         model = model.to(device)
         model.eval()
@@ -137,6 +131,7 @@ def _is_same_model(model: PreModel, other_model: PreModel):
         if p1.data.ne(p2.data).sum() > 0:
             return False
     return True
+
 
 def pretrain(model: PreModel,
              graphs: List[DGLHeteroGraph],
@@ -208,7 +203,7 @@ if __name__ == '__main__':
     if args.use_cfg:
         args = load_best_configs(args, "configs.yml")
     args.save_model = True
-    args.load_model = False
+    args.load_model = True
     print(args)
     train_transductive(args)
     # TENSORBOARD_WRITER.close()

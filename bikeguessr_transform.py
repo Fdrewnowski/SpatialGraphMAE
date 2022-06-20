@@ -1,10 +1,9 @@
 import logging
 import os
-import pickle
 import random
 import uuid
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple
 
 import dgl
 import osmnx as ox
