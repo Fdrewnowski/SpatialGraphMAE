@@ -212,18 +212,19 @@ def _generate_id(graph_nx: MultiDiGraph) -> MultiDiGraph:
 
 
 def _convert_nx_to_dgl_as_linegraph(graph_nx: MultiDiGraph, selected_keys: List = SELECTED_KEYS) -> DGLHeteroGraph:
-    selected_keys.remove('label')
-    selected_keys.remove('idx')
+    sel_keys = selected_keys.copy()
+    sel_keys.remove('label')
+    sel_keys.remove('idx')
 
     graph_dgl = dgl.from_networkx(
-        graph_nx, edge_attrs=(selected_keys + ['label', 'idx']))
+        graph_nx, edge_attrs=(sel_keys + ['label', 'idx'])) 
     graph_dgl_line_graph = dgl.line_graph(graph_dgl)
     # populate linegraph with nodes
 
-    features_to_line_graph = [graph_dgl.edata[key] for key in selected_keys]
+    features_to_line_graph = [graph_dgl.edata[key] for key in sel_keys]
 
     graph_dgl_line_graph.ndata['feat'] = torch.cat(
-        features_to_line_graph).reshape((-1, len(selected_keys)))
+        features_to_line_graph).reshape((-1, len(sel_keys)))
     graph_dgl_line_graph.ndata['label'] = graph_dgl.edata['label'].type(torch.LongTensor)
     graph_dgl_line_graph.ndata['idx'] = graph_dgl.edata['idx']
     return graph_dgl_line_graph

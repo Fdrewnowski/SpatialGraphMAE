@@ -68,7 +68,7 @@ def train_transductive(args):
     use_scheduler = args.scheduler
 
     graphs, (num_features, num_classes) = load_bikeguessr_dataset(
-        r'C:\Users\jbelter\VisualCodeProjects\SpatialGraphMAE\data_transformed\14af828816524a98b4ec85f4cae30389_masks.graph')
+        r'C:\Users\jbelter\VisualCodeProjects\SpatialGraphMAE\data_transformed\d524a37ce0fc4a2bb030afdc718fddb0.bin')
     args.num_features = num_features
 
     acc_list = []
@@ -80,7 +80,7 @@ def train_transductive(args):
         if logs:
             #logger = TBLogger(
             #    name=f"{dataset_name}_loss_{loss_fn}_rpr_{replace_rate}_nh_{num_hidden}_nl_{num_layers}_lr_{lr}_mp_{max_epoch}_mpf_{max_epoch_f}_wd_{weight_decay}_wdf_{weight_decay_f}_{encoder_type}_{decoder_type}")
-            current_time = datetime.now().strftime("%H:%M:%S")
+            current_time = datetime.now().strftime("%H_%M_%S")
             logger = TBLogger(name=f"{dataset_name}_{current_time}")
         else:
             logger = None
@@ -132,6 +132,12 @@ def train_transductive(args):
     logging.info(f"# early-stopping_acc: {estp_acc:.4f}±{estp_acc_std:.4f}")
 
 
+def _is_same_model(model: PreModel, other_model: PreModel):
+    for p1, p2 in zip(model.parameters(), other_model.parameters()):
+        if p1.data.ne(p2.data).sum() > 0:
+            return False
+    return True
+
 def pretrain(model: PreModel,
              graphs: List[DGLHeteroGraph],
              feats: List[torch.Tensor],
@@ -144,10 +150,12 @@ def pretrain(model: PreModel,
              weight_decay_f: float,
              max_epoch_f: int,
              linear_prob: bool,
-             logger: TBLogger = None):
+             logger: TBLogger = None,
+             eval_epoch: int = 10):
     logging.info("start training..")
     epoch_iter = tqdm(range(max_epoch))
-
+    best_test_f1_score = 0.0
+    best_model = None
     for epoch in epoch_iter:
         epoch_f1_scores_train, epoch_f1_scores_val, epoch_f1_scores_test, epoch_loss = [], [], [], []
         for graph, feat in zip(graphs, feats):
@@ -155,7 +163,7 @@ def pretrain(model: PreModel,
             x = feat.to(device)
             model.train()
 
-            loss, loss_dict = model(g, x)
+            loss, _ = model(g, x)
 
             optimizer.zero_grad()
             loss.backward()
@@ -167,23 +175,31 @@ def pretrain(model: PreModel,
                 f"# Epoch {epoch}: train_loss: {loss.item():.4f}")
             epoch_loss.append(loss.cpu().detach().numpy())
 
-            if (epoch + 1) % 4 == 0:
+            if (epoch + 1) % eval_epoch == 0:
                 _, _, f1_scores = node_classification_evaluation(
                     model, g, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, epoch, linear_prob, mute=True)
                 epoch_f1_scores_train.append(f1_scores[0])
                 epoch_f1_scores_val.append(f1_scores[1])
                 epoch_f1_scores_test.append(f1_scores[2])
+        if (epoch + 1) % eval_epoch == 0:
+            if best_test_f1_score < np.mean(epoch_f1_scores_test):
+                best_test_f1_score = np.mean(epoch_f1_scores_test)
+                torch.save(model, "best_f1_score_model.pt")
+                best_model = torch.load("best_f1_score_model.pt")
+
         if logger is not None:
             logging_dict = {}
             logging_dict['Loss/train'] = np.mean(epoch_loss)
-            if (epoch + 1) % 4 == 0:
+            if (epoch + 1) % eval_epoch == 0:
                 logging_dict['F1/train'] = np.mean(epoch_f1_scores_train)
                 logging_dict['F1/test'] = np.mean(epoch_f1_scores_test)
                 logging_dict['F1/val'] = np.mean(epoch_f1_scores_val)
             logger.note(logging_dict, step=epoch)
 
+    if _is_same_model(best_model, model):
+        logging.warn('Best model and currently trained model are identical')
     # return best_model
-    return model
+    return best_model
 
 
 if __name__ == '__main__':
