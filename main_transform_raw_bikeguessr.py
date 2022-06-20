@@ -4,7 +4,7 @@ import pickle
 import random
 import uuid
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 import dgl
 import osmnx as ox
@@ -40,7 +40,7 @@ DATA_INPUT = 'data_raw'
 DATA_OUTPUT = 'data_transformed'
 
 
-def load_directory_bikeguessr(directory: str = None, save: bool = True) -> None:
+def load_transform_dir_bikeguessr(directory: str = None, save: bool = True) -> None:
     logging.info('load bikeguessr directory')
     if directory is None:
         directory = os.path.join(os.getcwd(), DATA_INPUT)
@@ -49,51 +49,40 @@ def load_directory_bikeguessr(directory: str = None, save: bool = True) -> None:
     for path in tqdm(found_files):
         logging.info('processing: ' + str(path.stem) +
                      ' size: ' + _sizeof_fmt(os.path.getsize(path)))
-        graph, _ = load_single_bikeguessr(path, False)
+        graph = load_transform_single_bikeguessr(path, False)
         graphs.append(graph)
     logging.info('merging bikeguessr graphs')
 
-    save_bikeguessr(Path(path.parent, 'bikeguessr_merged'), graphs)
+    save_bikeguessr(Path(path.parent, 'bikeguessr_merged'))
     logging.info('end load bikeguessr directory')
 
 
-def load_single_bikeguessr(path: str, save: bool = True) -> Tuple[DGLHeteroGraph, StandardScaler]:
+def load_transform_single_bikeguessr(path: str, save: bool = True) -> DGLHeteroGraph:
     logging.debug('load single bikeguessr')
     bikeguessr_linegraph = _load_transform_linegraph(path)
-    bikeguessr_linegraph_with_masks, _, scaler = _create_mask(
+    bikeguessr_linegraph_with_masks, _ = _create_mask(
         bikeguessr_linegraph)
     if save:
-        save_bikeguessr(path, bikeguessr_linegraph_with_masks, scaler)
+        save_bikeguessr(path, bikeguessr_linegraph_with_masks)
     logging.debug('end load single bikeguessr')
-    return bikeguessr_linegraph_with_masks, scaler
+    return bikeguessr_linegraph_with_masks
 
 
-def save_bikeguessr(path: str, graph: DGLHeteroGraph, scaler: StandardScaler = None) -> None:
+def save_bikeguessr(path: str, graph: DGLHeteroGraph) -> None:
     logging.info('saving bikeguessr graph')
     parent = str(Path(path).parent.parent.absolute())
-    stem = str(Path(path).stem)
     graph_file = os.path.join(
         parent, DATA_OUTPUT, uuid.uuid4().hex + '.bin')
     save_graphs(graph_file, graph)
-    if scaler is not None:
-        scaler_file = os.path.join(parent, DATA_OUTPUT, stem + '_scaler.pkl')
-        with open(scaler_file, 'wb+') as handle:
-            pickle.dump(scaler, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def _load_transform_linegraph(path: str) -> DGLHeteroGraph:
     raw_graphml = ox.io.load_graphml(path)
     encoded_graphml = _encode_data(raw_graphml)
-    seen_values = _get_all_key_and_unique_values(encoded_graphml)
-    #encoded_graphml = _generate_id(encoded_graphml)
-    #print(encoded_graphml[95584835][6152142174])
-    #print(seen_values['label'])
-    #labels_graphml = _generate_cycle_label(
-    #    encoded_graphml, HIGHWAY_CODING['highway'])
     return _convert_nx_to_dgl_as_linegraph(encoded_graphml)
 
 
-def _create_mask(graph: DGLHeteroGraph, split_type: str = 'stratified') -> Tuple[DGLHeteroGraph, List, StandardScaler]:
+def _create_mask(graph: DGLHeteroGraph, split_type: str = 'stratified') -> Tuple[DGLHeteroGraph, Tuple[int, int]]:
     num_nodes = graph.num_nodes()
 
     if split_type == 'stratified':
@@ -121,7 +110,7 @@ def _create_mask(graph: DGLHeteroGraph, split_type: str = 'stratified') -> Tuple
     graph.ndata["train_mask"], graph.ndata["val_mask"], graph.ndata["test_mask"] = train_mask, val_mask, test_mask
     num_features = graph.ndata["feat"].shape[1]
     num_classes = 2
-    return graph, (num_features, num_classes), scaler
+    return graph, (num_features, num_classes)
 
 
 def _encode_data(graph_nx: MultiDiGraph, selected_keys: List = SELECTED_KEYS, default_values: Dict = DEFAULT_VALUES, onehot_key: Dict = HIGHWAY_CODING) -> MultiDiGraph:
@@ -198,6 +187,7 @@ def _generate_cycle_label(graph_nx: MultiDiGraph, highway_coding: Dict = {}) -> 
                     graph_edge['label'] = 0
     return graph_nx_copy
 
+
 def _generate_id(graph_nx: MultiDiGraph) -> MultiDiGraph:
     graph_nx_copy = graph_nx.copy()
     edge_id = 0
@@ -217,7 +207,7 @@ def _convert_nx_to_dgl_as_linegraph(graph_nx: MultiDiGraph, selected_keys: List 
     sel_keys.remove('idx')
 
     graph_dgl = dgl.from_networkx(
-        graph_nx, edge_attrs=(sel_keys + ['label', 'idx'])) 
+        graph_nx, edge_attrs=(sel_keys + ['label', 'idx']))
     graph_dgl_line_graph = dgl.line_graph(graph_dgl)
     # populate linegraph with nodes
 
@@ -225,7 +215,8 @@ def _convert_nx_to_dgl_as_linegraph(graph_nx: MultiDiGraph, selected_keys: List 
 
     graph_dgl_line_graph.ndata['feat'] = torch.cat(
         features_to_line_graph).reshape((-1, len(sel_keys)))
-    graph_dgl_line_graph.ndata['label'] = graph_dgl.edata['label'].type(torch.LongTensor)
+    graph_dgl_line_graph.ndata['label'] = graph_dgl.edata['label'].type(
+        torch.LongTensor)
     graph_dgl_line_graph.ndata['idx'] = graph_dgl.edata['idx']
     return graph_dgl_line_graph
 
@@ -244,7 +235,8 @@ def _get_random_split(number_of_nodes, train_size_coef=0.05, val_size_coef=0.18,
 
     return split_idx
 
-def _get_stratified_split(labels, train_bicycle_coef = 0.2, val_bicycle_coef = 0.3, test_bicycle_coef = 0.4):
+
+def _get_stratified_split(labels, train_bicycle_coef=0.2, val_bicycle_coef=0.3, test_bicycle_coef=0.4):
     number_of_nodes = labels.shape[0]
     cycle_ids = ((labels == True).nonzero(as_tuple=True)[0]).tolist()
     number_of_cycle = len(cycle_ids)
@@ -258,28 +250,31 @@ def _get_stratified_split(labels, train_bicycle_coef = 0.2, val_bicycle_coef = 0
 
     split_idx = {}
     train_cycle_idx = random.sample(cycle_ids, train_size)
-    train_noncycle_idx = _randome_sample_with_exceptions(number_of_nodes, train_size, cycle_ids)
+    train_noncycle_idx = _randome_sample_with_exceptions(
+        number_of_nodes, train_size, cycle_ids)
     split_idx['train'] = train_cycle_idx + train_noncycle_idx
     split_idx['train'].sort()
-    
+
     val_cycle_idx = random.sample(cycle_ids, val_size)
-    val_noncycle_idx = _randome_sample_with_exceptions(number_of_nodes, val_size, cycle_ids)
+    val_noncycle_idx = _randome_sample_with_exceptions(
+        number_of_nodes, val_size, cycle_ids)
     split_idx['valid'] = val_cycle_idx + val_noncycle_idx
     split_idx['valid'].sort()
 
     test_cycle_idx = random.sample(cycle_ids, test_size)
-    test_noncycle_idx = _randome_sample_with_exceptions(number_of_nodes, test_size, cycle_ids)
+    test_noncycle_idx = _randome_sample_with_exceptions(
+        number_of_nodes, test_size, cycle_ids)
     split_idx['test'] = test_cycle_idx + test_noncycle_idx
     split_idx['test'].sort()
-    
+
     return split_idx
+
 
 def _randome_sample_with_exceptions(max_range, size, exceptions):
     not_cycle = list(range(0, max_range))
     for elem in exceptions:
         not_cycle.remove(elem)
     return random.sample(not_cycle, size)
-        
 
 
 def randome_sample_with_exceptions(max_range, size, exceptions):
@@ -349,4 +344,4 @@ def _sizeof_fmt(num: int, suffix: str = "B") -> str:
 
 
 if __name__ == "__main__":
-    load_directory_bikeguessr()
+    load_transform_dir_bikeguessr()
