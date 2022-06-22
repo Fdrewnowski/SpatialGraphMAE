@@ -96,26 +96,30 @@ def train_transductive(args):
             scheduler = None
 
         X = [g.ndata['feat'] for g in graphs]
-        if not load_model:
-            model = pretrain(model, graphs, X, optimizer, max_epoch, device, scheduler,
-                             num_classes, lr_f, weight_decay_f, max_epoch_f, linear_prob, logger)
-            model = model.cpu()
-
         if load_model:
             logging.info("Loading Model ... ")
             model = torch.load("bikeguessr.model")
+        else:
+            smgae_autoencoder, sgmae_full, f1_score_early_stopping = \
+                pretrain(model, graphs, X, optimizer, max_epoch, device, scheduler,
+                         num_classes, lr_f, weight_decay_f, max_epoch_f, linear_prob, logger)
+            model = smgae_autoencoder
+
         model = model.to(device)
         model.eval()
 
         for g, x in zip(graphs, X):
-            best_model, f1_scores = node_classification_evaluation(
+            sgmae_full_eot, f1_score_eot = node_classification_evaluation(
                 model, g, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, linear_prob)
+
+        logging.info(f'early stopping f1 score on test: {f1_score_early_stopping}')
+        logging.info(f'end of training f1 score on test: {f1_score_eot[2]}')
+
+        best_model = sgmae_full if f1_score_early_stopping > f1_score_eot[2] else sgmae_full_eot
 
         if save_model:
             logging.info("Saveing Model ...")
-            torch.save(model, "bikeguessr.model")
-
-        logging.info(f'final f1 score on test: {f1_scores[2]}')
+            torch.save(model, "sgae.model")
 
         if logger is not None:
             logger.finish()
@@ -143,7 +147,7 @@ def pretrain(model: PreModel,
              max_epoch_f: int,
              linear_prob: bool,
              logger: TBLogger = None,
-             eval_epoch: int = 10):
+             eval_epoch: int = 10) -> Tuple[PreModel, PreModel, float]:
     logging.info("start training..")
     epoch_iter = tqdm(range(max_epoch))
     best_test_f1_score = 0.0
@@ -190,8 +194,8 @@ def pretrain(model: PreModel,
 
     if _is_same_model(best_model, model_with_classifier):
         logging.warn('Best model and currently trained model are identical')
-    # return best_model
-    return best_model
+
+    return model, best_model, best_test_f1_score
 
 
 if __name__ == '__main__':
