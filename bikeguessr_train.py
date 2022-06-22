@@ -104,8 +104,6 @@ def train_transductive(args):
         if load_model:
             logging.info("Loading Model ... ")
             model = torch.load("bikeguessr.model")
-
-
         model = model.to(device)
         model.eval()
 

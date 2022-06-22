@@ -9,7 +9,6 @@ from torch import Tensor
 from folium.folium import Map
 from dgl.data.utils import load_graphs
 import pickle
-import torch
 
 
 def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name: str, popup: bool):
@@ -71,19 +70,20 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
 
 if __name__ == "__main__":
     #options
-    ox_graph_name = "wroclaw.xml"
-    dgl_graph_name = "wroclaw.bin"
-    prediction_file = "wroclaw.pkl"
+    ox_graph_name = "Gdańsk_Polska_recent.xml"
+    dgl_graph_name = "Gdansk_Polska_recent_masks.graph"
+    prediction_file = "Gdańsk_Polska_recent_pred.pickle"
     mask_to_visualise = 'test_mask' # 3 options train, dev, test
 
     graph_ox = ox.io.load_graphml("./data_raw/" + ox_graph_name)
     dgl_graph = load_graphs("./data_transformed/" + dgl_graph_name)[0][0]
 
-    with open("./preds/" + prediction_file, 'rb') as handle:
+    with open("./data/" + prediction_file, 'rb') as handle:
         predictions = pickle.load(handle)
         predictions = predictions.max(1)[1].type_as(dgl_graph.ndata[mask_to_visualise])
 
-    _show_preds(graph_ox, torch.ones(dgl_graph.ndata[mask_to_visualise].shape), predictions , prediction_file.split('.')[0], True)
+
+    _show_preds(graph_ox, dgl_graph.ndata[mask_to_visualise], predictions , prediction_file.split('.')[0], True)
 
 
 
