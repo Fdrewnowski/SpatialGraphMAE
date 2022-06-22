@@ -21,13 +21,13 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 
-def load_bikeguessr_dataset(filename: str, directory: str = None) -> Tuple[List[DGLHeteroGraph], Tuple[int, int]]:
+def load_bikeguessr_dataset(filepath: str) -> Tuple[List[DGLHeteroGraph], Tuple[int, int]]:
     logging.info('load bikeguessr dataset')
-    if directory is None:
-        directory = os.path.join(os.getcwd(), DATA_OUTPUT)
-    file = Path(directory, filename)
+    if filepath is None:
+        filepath = str(Path(DATA_OUTPUT, 'bikeguessr.bin'))
+    file = Path(filepath)
 
-    logging.info('processing: ' + str(file.stem) +
+    logging.info('processing: ' + str(file.absolute()) +
                  ' size: ' + _sizeof_fmt(os.path.getsize(file)))
     graphs, _ = load_graphs(str(file))
     num_features, num_classes = [], []

@@ -46,43 +46,54 @@ def build_args() -> argparse.Namespace:
     data_to_transform.add_argument('-a', '--all', action='store_true')
     data_to_transform.add_argument('-s', '--single', action='store_true')
     parser.add_argument('-p', '--path', type=str, default=None)
+    parser.add_argument('-o', '--output', type=str, default=None)
+    parser.add_argument('-t', '--target', type=str, default=None)
     return parser.parse_args()
 
 
-def load_transform_dir_bikeguessr(directory: str = None, save: bool = True) -> None:
+def load_transform_dir_bikeguessr(directory: str = None, save: bool = True, output: str = None, target: str = None) -> None:
     logging.info('load bikeguessr directory')
     if directory is None:
-        directory = os.path.join(os.getcwd(), DATA_INPUT)
+        directory = DATA_INPUT
     found_files = list(Path(directory).glob('*.xml'))
     graphs = []
     for path in tqdm(found_files):
+        if target is not None:
+            if Path(target) == path:
+                logging.info('skipping target city' + target)
+                continue
         logging.info('processing: ' + str(path.stem) +
                      ' size: ' + _sizeof_fmt(os.path.getsize(path)))
         graph = load_transform_single_bikeguessr(path, False)
         graphs.append(graph)
     logging.info('merging bikeguessr graphs')
-
-    save_bikeguessr(Path(path.parent, 'bikeguessr_merged'))
+    if output is None:
+        output = Path(DATA_OUTPUT, 'bikeguessr.bin')
+    else:
+        output = Path(output)
+    if save:
+        save_bikeguessr(output, graphs)
     logging.info('end load bikeguessr directory')
 
 
-def load_transform_single_bikeguessr(path: str, save: bool = True) -> DGLHeteroGraph:
+def load_transform_single_bikeguessr(path: str, save: bool = True, output: str = None) -> DGLHeteroGraph:
     logging.debug('load single bikeguessr')
     bikeguessr_linegraph = _load_transform_linegraph(path)
     bikeguessr_linegraph_with_masks, _ = _create_mask(
         bikeguessr_linegraph)
+    if output is None:
+        output = Path(DATA_OUTPUT, 'bikeguessr.bin')
+    else:
+        output = Path(output)
     if save:
-        save_bikeguessr(path, bikeguessr_linegraph_with_masks)
+        save_bikeguessr(output, bikeguessr_linegraph_with_masks)
     logging.debug('end load single bikeguessr')
     return bikeguessr_linegraph_with_masks
 
 
-def save_bikeguessr(path: str, graph: DGLHeteroGraph) -> None:
+def save_bikeguessr(output: Path, graph: DGLHeteroGraph) -> None:
     logging.info('saving bikeguessr graph')
-    parent = str(Path(path).parent.parent.absolute())
-    graph_file = os.path.join(
-        parent, DATA_OUTPUT, 'bikeguessr.bin')
-    save_graphs(graph_file, graph)
+    save_graphs(str(output), graph)
 
 
 def _load_transform_linegraph(path: str) -> DGLHeteroGraph:
@@ -314,7 +325,8 @@ def _sizeof_fmt(num: int, suffix: str = "B") -> str:
 if __name__ == "__main__":
     args = build_args()
     if args.all:
-        load_transform_dir_bikeguessr(directory=args.path)
+        load_transform_dir_bikeguessr(directory=args.path, output=args.output, target=args.target)
     if args.single:
         assert args.path is not None
-        load_transform_single_bikeguessr(path=args.path)
+        logging.info('processing single graph {}'.format(args.path))
+        load_transform_single_bikeguessr(path=args.path, output=args.output)
