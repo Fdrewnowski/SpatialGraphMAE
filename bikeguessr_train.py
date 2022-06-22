@@ -119,7 +119,7 @@ def train_transductive(args):
 
         if save_model:
             logging.info("Saveing Model ...")
-            torch.save(model, "sgae.model")
+            torch.save(best_model, "sgae.model")
 
         if logger is not None:
             logger.finish()
