@@ -48,6 +48,7 @@ if __name__ == '__main__':
     X = X.to(device)
 
     pred = sgmae(graph, X)
+    pred_1 = sgmae(None, X)
     if args.save:
         pred_file = Path('preds/' + Path(args.data).stem + '.pkl')
         pred_file.parent.mkdir(parents=True, exist_ok=True)

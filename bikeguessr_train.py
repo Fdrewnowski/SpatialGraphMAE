@@ -104,26 +104,25 @@ def train_transductive(args):
         if load_model:
             logging.info("Loading Model ... ")
             model = torch.load("bikeguessr.model")
-        if save_model:
-            logging.info("Saveing Model ...")
-            torch.save(model, "bikeguessr.model")
+
 
         model = model.to(device)
         model.eval()
 
         for g, x in zip(graphs, X):
-            final_acc, estp_acc, _ = node_classification_evaluation(
+            best_model, f1_scores = node_classification_evaluation(
                 model, g, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, linear_prob)
-            acc_list.append(final_acc)
-            estp_acc_list.append(estp_acc)
+
+        if save_model:
+            logging.info("Saveing Model ...")
+            torch.save(model, "bikeguessr.model")
+
+        logging.info(f'final f1 score on test: {f1_scores[2]}')
 
         if logger is not None:
             logger.finish()
 
-    final_acc, final_acc_std = np.mean(acc_list), np.std(acc_list)
-    estp_acc, estp_acc_std = np.mean(estp_acc_list), np.std(estp_acc_list)
-    logging.info(f"# final_acc: {final_acc:.4f}±{final_acc_std:.4f}")
-    logging.info(f"# early-stopping_acc: {estp_acc:.4f}±{estp_acc_std:.4f}")
+    return best_model
 
 
 def _is_same_model(model: PreModel, other_model: PreModel):
@@ -171,7 +170,7 @@ def pretrain(model: PreModel,
             epoch_loss.append(loss.cpu().detach().numpy())
 
             if (epoch + 1) % eval_epoch == 0:
-                _, _, f1_scores = node_classification_evaluation(
+                model_with_classifier, f1_scores = node_classification_evaluation(
                     model, g, x, num_classes, lr_f, weight_decay_f, max_epoch_f, device, epoch, linear_prob, mute=True)
                 epoch_f1_scores_train.append(f1_scores[0])
                 epoch_f1_scores_val.append(f1_scores[1])
@@ -179,7 +178,7 @@ def pretrain(model: PreModel,
         if (epoch + 1) % eval_epoch == 0:
             if best_test_f1_score < np.mean(epoch_f1_scores_test):
                 best_test_f1_score = np.mean(epoch_f1_scores_test)
-                torch.save(model, "best_f1_score_model.pt")
+                torch.save(model_with_classifier, "best_f1_score_model.pt")
                 best_model = torch.load("best_f1_score_model.pt")
 
         if logger is not None:
@@ -191,7 +190,7 @@ def pretrain(model: PreModel,
                 logging_dict['F1/val'] = np.mean(epoch_f1_scores_val)
             logger.note(logging_dict, step=epoch)
 
-    if _is_same_model(best_model, model):
+    if _is_same_model(best_model, model_with_classifier):
         logging.warn('Best model and currently trained model are identical')
     # return best_model
     return best_model

@@ -1,5 +1,6 @@
 import copy
 import logging
+from typing import Tuple
 import warnings
 
 import torch
@@ -27,7 +28,7 @@ def node_classification_evaluation(
         device: torch.device,
         training_epoch: int = None,
         linear_prob: bool = True,
-        mute: bool = False):
+        mute: bool = False) -> Tuple[PreModel, Tuple[float, float, float]]:
     model.eval()
     if linear_prob:
         with torch.no_grad():
@@ -46,9 +47,9 @@ def node_classification_evaluation(
 
     encoder.to(device)
     optimizer_f = create_optimizer("adam", encoder, lr_f, weight_decay_f)
-    final_acc, estp_acc, f1_scores = linear_probing_for_transductive_node_classiifcation(
+    best_model, f1_scores = linear_probing_for_transductive_node_classiifcation(
         encoder, graph, x, optimizer_f, max_epoch_f, device, training_epoch, mute)
-    return final_acc, estp_acc, f1_scores
+    return best_model, f1_scores
 
 
 def linear_probing_for_transductive_node_classiifcation(
@@ -59,7 +60,7 @@ def linear_probing_for_transductive_node_classiifcation(
         max_epoch: int,
         device: torch.device,
         training_epoch: int = None,
-        mute: bool = False):
+        mute: bool = False) -> Tuple[PreModel, Tuple[float, float, float]]:
     criterion = torch.nn.CrossEntropyLoss()
 
     graph = graph.to(device)
@@ -120,7 +121,7 @@ def linear_probing_for_transductive_node_classiifcation(
             f"--- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch} --- ")
 
     # (final_acc, es_acc, best_acc)
-    return test_acc, estp_test_acc, (estp_train_f1, estp_val_f1, estp_test_f1)
+    return best_model, (estp_train_f1, estp_val_f1, estp_test_f1)
 
 
 def linear_probing_for_inductive_node_classiifcation(model, x, labels, mask, optimizer, max_epoch, device, mute=False):
