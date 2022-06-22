@@ -74,7 +74,7 @@ def train_transductive(args):
         if logs:
             # logger = TBLogger(
             #    name=f"{dataset_name}_loss_{loss_fn}_rpr_{replace_rate}_nh_{num_hidden}_nl_{num_layers}_lr_{lr}_mp_{max_epoch}_mpf_{max_epoch_f}_wd_{weight_decay}_wdf_{weight_decay_f}_{encoder_type}_{decoder_type}")
-            current_time = datetime.now().strftime("%H_%M_%S")
+            current_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
             logger = TBLogger(name=f"{dataset_name}_{current_time}")
         else:
             logger = None
@@ -103,10 +103,10 @@ def train_transductive(args):
 
         if load_model:
             logging.info("Loading Model ... ")
-            model.load_state_dict(torch.load("model_11_20_06.pt"))
+            model = torch.load("bikeguessr.model")
         if save_model:
             logging.info("Saveing Model ...")
-            torch.save(model, "model_11_20_06.model")
+            torch.save(model, "bikeguessr.model")
 
         model = model.to(device)
         model.eval()
