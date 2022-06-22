@@ -47,7 +47,7 @@ def get_current_lr(optimizer):
 def build_args():
     parser = argparse.ArgumentParser(description="GAT")
     parser.add_argument("--seeds", type=int, nargs="+", default=[0])
-    parser.add_argument("--dataset", type=str, default="cora")
+    parser.add_argument("--dataset", type=str, default="bikeguessr")
     parser.add_argument("--device", type=int, default=-1)
     parser.add_argument("--max_epoch", type=int, default=200,
                         help="number of training epochs")
@@ -95,10 +95,11 @@ def build_args():
 
     parser.add_argument("--load_model", action="store_true")
     parser.add_argument("--save_model", action="store_true")
-    parser.add_argument("--use_cfg", action="store_true", default=True)
+    parser.add_argument("--use_cfg", action="store_true")
     parser.add_argument("--logging", action="store_true")
     parser.add_argument("--scheduler", action="store_true", default=False)
     parser.add_argument("--concat_hidden", action="store_true", default=False)
+    parser.add_argument("--path", type=str, default='./data_transformed/bikeguessr.bin')
 
     # for graph classification
     parser.add_argument("--pooling", type=str, default="mean")

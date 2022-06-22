@@ -10,24 +10,24 @@ from dgl.data.utils import load_graphs
 from dgl.heterograph import DGLHeteroGraph
 from tqdm import tqdm
 
+from bikeguessr_transform import DATA_OUTPUT, _sizeof_fmt
 from graphmae.evaluation import node_classification_evaluation
 from graphmae.models import build_model
 from graphmae.models.edcoder import PreModel
 from graphmae.utils import (TBLogger, build_args, create_optimizer,
                             get_current_lr, load_best_configs, set_random_seed)
-from main_transform_raw_bikeguessr import DATA_OUTPUT, _sizeof_fmt
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 
-def load_bikeguessr_dataset(filename: str, directory: str = None) -> Tuple[List[DGLHeteroGraph], Tuple[int, int]]:
+def load_bikeguessr_dataset(filepath: str) -> Tuple[List[DGLHeteroGraph], Tuple[int, int]]:
     logging.info('load bikeguessr dataset')
-    if directory is None:
-        directory = os.path.join(os.getcwd(), DATA_OUTPUT)
-    file = Path(directory, filename)
+    if filepath is None:
+        filepath = str(Path(DATA_OUTPUT, 'bikeguessr.bin'))
+    file = Path(filepath)
 
-    logging.info('processing: ' + str(file.stem) +
+    logging.info('processing: ' + str(file.absolute()) +
                  ' size: ' + _sizeof_fmt(os.path.getsize(file)))
     graphs, _ = load_graphs(str(file))
     num_features, num_classes = [], []
@@ -46,16 +46,11 @@ def train_transductive(args):
     logging.info("using device: {}".format(device))
     seeds = args.seeds
     dataset_name = args.dataset
+    dataset_path = args.path
     max_epoch = args.max_epoch
     max_epoch_f = args.max_epoch_f
-    num_hidden = args.num_hidden
-    num_layers = args.num_layers
-    encoder_type = args.encoder
-    decoder_type = args.decoder
-    replace_rate = args.replace_rate
 
     optim_type = args.optimizer
-    loss_fn = args.loss_fn
 
     lr = args.lr
     weight_decay = args.weight_decay
@@ -67,8 +62,7 @@ def train_transductive(args):
     logs = args.logging
     use_scheduler = args.scheduler
 
-    graphs, (num_features, num_classes) = load_bikeguessr_dataset(
-        r'C:\Users\jbelter\VisualCodeProjects\SpatialGraphMAE\data_transformed\d524a37ce0fc4a2bb030afdc718fddb0.bin')
+    graphs, (num_features, num_classes) = load_bikeguessr_dataset(dataset_path)
     args.num_features = num_features
 
     acc_list = []
@@ -78,9 +72,9 @@ def train_transductive(args):
         set_random_seed(seed)
 
         if logs:
-            #logger = TBLogger(
+            # logger = TBLogger(
             #    name=f"{dataset_name}_loss_{loss_fn}_rpr_{replace_rate}_nh_{num_hidden}_nl_{num_layers}_lr_{lr}_mp_{max_epoch}_mpf_{max_epoch_f}_wd_{weight_decay}_wdf_{weight_decay_f}_{encoder_type}_{decoder_type}")
-            current_time = datetime.now().strftime("%H_%M_%S")
+            current_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
             logger = TBLogger(name=f"{dataset_name}_{current_time}")
         else:
             logger = None
@@ -109,10 +103,10 @@ def train_transductive(args):
 
         if load_model:
             logging.info("Loading Model ... ")
-            model.load_state_dict(torch.load("checkpoint.pt"))
+            model = torch.load("bikeguessr.model")
         if save_model:
             logging.info("Saveing Model ...")
-            torch.save(model.state_dict(), "checkpoint.pt")
+            torch.save(model, "bikeguessr.model")
 
         model = model.to(device)
         model.eval()
@@ -137,6 +131,7 @@ def _is_same_model(model: PreModel, other_model: PreModel):
         if p1.data.ne(p2.data).sum() > 0:
             return False
     return True
+
 
 def pretrain(model: PreModel,
              graphs: List[DGLHeteroGraph],
@@ -204,11 +199,8 @@ def pretrain(model: PreModel,
 
 if __name__ == '__main__':
     args = build_args()
-    args.dataset = 'bikeguessr'
     if args.use_cfg:
         args = load_best_configs(args, "configs.yml")
-    args.save_model = True
-    args.load_model = False
     print(args)
     train_transductive(args)
     # TENSORBOARD_WRITER.close()
