@@ -43,11 +43,16 @@ def build_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description='bikeguessr_transform')
     data_to_transform = parser.add_mutually_exclusive_group(required=True)
-    data_to_transform.add_argument('-a', '--all', action='store_true')
-    data_to_transform.add_argument('-s', '--single', action='store_true')
-    parser.add_argument('-p', '--path', type=str, default=None)
-    parser.add_argument('-o', '--output', type=str, default=None)
-    parser.add_argument('-t', '--target', type=str, default=None)
+    data_to_transform.add_argument('-a', '--all', action='store_true',
+                                   help='Transform all graphml files from either default folder or specified path')
+    data_to_transform.add_argument('-s', '--single', action='store_true',
+                                   help='Transform single graphml files from either default folder or specified path')
+    parser.add_argument('-p', '--path', type=str, default=None,
+                        help='Path where to look for graphml file/files')
+    parser.add_argument('-o', '--output', type=str, default=None,
+                        help='Path where transformed data will be stored')
+    parser.add_argument('-t', '--targets', nargs='+', default=None,
+                        help='Path or paths of graphml files which should be ignored when using -a option so that train and test data are split')
     return parser.parse_args()
 
 
@@ -325,7 +330,8 @@ def _sizeof_fmt(num: int, suffix: str = "B") -> str:
 if __name__ == "__main__":
     args = build_args()
     if args.all:
-        load_transform_dir_bikeguessr(directory=args.path, output=args.output, target=args.target)
+        load_transform_dir_bikeguessr(
+            directory=args.path, output=args.output, target=args.target)
     if args.single:
         assert args.path is not None
         logging.info('processing single graph {}'.format(args.path))

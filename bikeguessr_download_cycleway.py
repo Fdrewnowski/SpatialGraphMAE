@@ -1,4 +1,5 @@
 import argparse
+import logging
 
 import networkx as nx
 import osmnx as ox
@@ -14,6 +15,10 @@ def build_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
+    
+
 def download_graph(place: str):
     place_parts = place.split(',')
     assert len(place_parts) > 1
@@ -21,13 +26,13 @@ def download_graph(place: str):
     output = output.replace(' ', "")
     gdf = ox.geocoder.geocode_to_gdf(place)
     polygon = gdf['geometry'][0]
-    filters = ['["highway"~"cycleway"]', '["bicycle"]', '["cycleway"]']
+    filters = ['["highway"~"cycleway"]', '["bicycle"~"designated"]', '["cycleway"]']
 
     #print("Downloading graphs")
     graphs_with_cycle = [ox.graph.graph_from_polygon(
         polygon, network_type='bike', custom_filter=cf, retain_all=True) for cf in filters]
     graph_without_cycle = ox.graph.graph_from_polygon(
-        polygon, network_type='bike', retain_all=True)
+        polygon, network_type='drive', retain_all=True)
 
     # print("Merging")
     previous = graph_without_cycle
@@ -65,7 +70,7 @@ if __name__ == "__main__":
             "Berlin, Niemcy",
             "Mediolan, Lombardia, Włochy",
             "Amsterdam, Holandia Północna, Niderlandy, Holandia",
-            "Londyn, Greater London, Anglia, Wielka Brytania",
+            #"Londyn, Greater London, Anglia, Wielka Brytania", # too big
             "Budapeszt, Środkowe Węgry, Węgry",
             "Sztokholm, Solna kommun, Stockholm County, Szwecja",
             "Oslo, Norwegia",
@@ -124,6 +129,11 @@ if __name__ == "__main__":
         places_to_download = ["Wrocław, województwo dolnośląskie, Polska"]
     if args.gdansk:
         places_to_download = ["Gdańsk, województwo pomorskie, Polska"]
-    
-    for place in tqdm(places_to_download, total=len(places_to_download)):
-        download_graph(place)
+    place_iter = tqdm(places_to_download, total=len(places_to_download))
+    for place in place_iter:
+        place_iter.set_description(
+            f"# {place}")
+        try:
+            download_graph(place)
+        except:
+            logging.warn(f'{place} was corrupted. Skipping...')
