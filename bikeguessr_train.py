@@ -110,8 +110,8 @@ def train_transductive(args):
             model = gae_full
             if save_model:
                 logging.info("Saving trained Graph Masked Auto Encoders...")
-                torch.save(gae_full, "gmae_full.model")
-                torch.save(gae_early_stopping, "gmae_early_stopping.model")
+                torch.save(gae_full.cpu(), "gmae_full.model")
+                torch.save(gae_early_stopping.cpu(), "gmae_early_stopping.model")
             logging.info(
                 f'early stopping f1 score on test (pretrain): {f1_early_stopping}')
             logging.info(
@@ -131,7 +131,7 @@ def train_transductive(args):
         full_model = SGMAE(model, best_clf)
         if save_model:
             logging.info("Saving Model ...")
-            torch.save(full_model, "sgmae.model")
+            torch.save(full_model.cpu(), "sgmae.model")
 
         if logger is not None:
             logger.finish()
