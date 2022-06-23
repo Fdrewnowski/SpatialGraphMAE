@@ -2,7 +2,7 @@ import osmnx as ox
 import networkx as nx
 import folium
 from tqdm import tqdm
-
+import torch
 from networkx.classes.multidigraph import MultiDiGraph
 from dgl.heterograph import DGLHeteroGraph
 from torch import Tensor
@@ -15,7 +15,7 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
     assert grapf_networkx.number_of_edges() == mask.shape[0]
     
     mask_ids = ((mask == True).nonzero(as_tuple=True)[0]).tolist()
-    pred_ids = ((preds == True).nonzero(as_tuple=True)[0]).tolist()
+    pred_ids = preds#((preds == True).nonzero(as_tuple=True)[0]).tolist()
 
     year = str(2022)
     dif_cycle = nx.create_empty_copy(grapf_networkx)
@@ -61,7 +61,7 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
     except Exception as e:
         print("Error in pred as true cycle" + str(e))
 
-    m.save(f"./visu/{name}_{str(popup)}_only_cycle.html")
+    m.save(f"./final_results/{name}_{str(popup)}_all.html")
 
     #m1 = ox.plot_graph_folium(dif_cycle, popup_attribute='vis_data', color="blue")
     #m1.save(f"./visu/{name}_{str(popup)}_now.html")
@@ -70,38 +70,20 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
 
 if __name__ == "__main__":
     #options
-    ox_graph_name = "Gdańsk_Polska_recent.xml"
-    dgl_graph_name = "Gdansk_Polska_recent_masks.graph"
-    prediction_file = "Gdańsk_Polska_recent_pred.pickle"
+    ox_graph_name = "wroclaw.xml"
+    dgl_graph_name = "wro_xd.bin"
+    prediction_file = "wro_xd.pkl"
     mask_to_visualise = 'test_mask' # 3 options train, dev, test
 
-    graph_ox = ox.io.load_graphml("./data_raw/" + ox_graph_name)
-    dgl_graph = load_graphs("./data_transformed/" + dgl_graph_name)[0][0]
+    graph_ox = ox.io.load_graphml("./final_results/" + ox_graph_name)
+    dgl_graph = load_graphs("./final_results/" + dgl_graph_name)[0][0]
 
-    with open("./data/" + prediction_file, 'rb') as handle:
-        predictions = pickle.load(handle)
-        predictions = predictions.max(1)[1].type_as(dgl_graph.ndata[mask_to_visualise])
+    with open("./final_results/" + prediction_file, 'rb') as handle:
+        predictions = pickle.load(handle).cpu()
+        predictions_bycycle = predictions.max(1)[1].type_as(dgl_graph.ndata[mask_to_visualise])
 
+    top_preds = predictions.reshape(2, -1).topk(4000)[1][1].tolist()
+    print(predictions_bycycle.unique(return_counts =True))
+    all_elem = torch.ones(dgl_graph.ndata[mask_to_visualise].shape[0])
 
-    _show_preds(graph_ox, dgl_graph.ndata[mask_to_visualise], predictions , prediction_file.split('.')[0], True)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    _show_preds(graph_ox,  dgl_graph.ndata[mask_to_visualise], top_preds , prediction_file.split('.')[0], True)
