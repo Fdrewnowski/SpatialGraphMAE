@@ -22,7 +22,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def build_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='SpatialGraphMAE')
-    parser.add_argument('-m', '--model', type=str, default='sgmae.pt')
+    parser.add_argument('-m', '--model', type=str, default='sgmae.model')
     parser.add_argument('-t', '--transform_data', action='store_true')
     parser.add_argument('-d', '--data', type=str,
                         default='data_transformed/bikeguessr.bin')
@@ -52,4 +52,4 @@ if __name__ == '__main__':
         pred_file = Path('preds/' + Path(args.data).stem + '.pkl')
         pred_file.parent.mkdir(parents=True, exist_ok=True)
         with open(pred_file, 'wb+') as handle:
-            pickle.dump(pred, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(pred.cpu(), handle, protocol=pickle.HIGHEST_PROTOCOL)

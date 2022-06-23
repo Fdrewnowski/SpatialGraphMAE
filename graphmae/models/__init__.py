@@ -1,5 +1,5 @@
 from .edcoder import PreModel
-
+from .sgmae import SGMAE
 
 def build_model(args) -> PreModel:
     num_heads = args.num_heads

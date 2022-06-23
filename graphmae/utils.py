@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import yaml
-from sklearn.metrics import f1_score as sk_f1_score
+from sklearn.metrics import f1_score as sk_f1_score, recall_score as sk_recall_score
 from tensorboardX import SummaryWriter
 from torch import optim as optim
 
@@ -29,6 +29,12 @@ def f1(y_pred, y_true) -> float:
     y_true = y_true.squeeze().long()
     preds = y_pred.max(1)[1].type_as(y_true)
     return sk_f1_score(y_true.cpu(), preds.cpu())
+
+
+def recall(y_pred, y_true) -> float:
+    y_true = y_true.squeeze().long()
+    preds = y_pred.max(1)[1].type_as(y_true)
+    return sk_recall_score(y_true.cpu(), preds.cpu())
 
 
 def set_random_seed(seed):
@@ -81,7 +87,7 @@ def build_args():
 
     parser.add_argument("--encoder", type=str, default="gat")
     parser.add_argument("--decoder", type=str, default="gat")
-    parser.add_argument("--loss_fn", type=str, default="byol")
+    parser.add_argument("--loss_fn", type=str, default="sce")
     parser.add_argument("--alpha_l", type=float, default=2,
                         help="`pow`inddex for `sce` loss")
     parser.add_argument("--optimizer", type=str, default="adam")
@@ -100,6 +106,8 @@ def build_args():
     parser.add_argument("--scheduler", action="store_true", default=False)
     parser.add_argument("--concat_hidden", action="store_true", default=False)
     parser.add_argument("--path", type=str, default='./data_transformed/bikeguessr.bin')
+    parser.add_argument("--eval_epoch", type=int, default=10)
+    parser.add_argument("--eval_repeats", type=int, default=5)
 
     # for graph classification
     parser.add_argument("--pooling", type=str, default="mean")
