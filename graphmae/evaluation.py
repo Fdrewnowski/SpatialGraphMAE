@@ -1,7 +1,8 @@
 import copy
 import logging
-from typing import Tuple
+import pickle
 import warnings
+from typing import Dict, Tuple
 
 import torch
 import torch.nn as nn
@@ -9,12 +10,23 @@ from dgl.heterograph import DGLHeteroGraph
 from tqdm import tqdm
 
 from graphmae.models.edcoder import PreModel
-from graphmae.utils import accuracy, create_optimizer, f1
+from graphmae.utils import accuracy, create_optimizer, f1, recall
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
+
+
+def prepare_eval_dict(f1s, recalls) -> Dict[str, float]:
+    out = {}
+    out['F1/Test'] = f1s[0]
+    out['F1/Val'] = f1s[1]
+    out['F1/Train'] = f1s[2]
+    out['Recall/Test'] = recalls[0]
+    out['Recall/Val'] = recalls[1]
+    out['Recall/Train'] = recalls[2]
+    return out
 
 
 def node_classification_evaluation(
@@ -26,9 +38,8 @@ def node_classification_evaluation(
         weight_decay_f: float,
         max_epoch_f: float,
         device: torch.device,
-        training_epoch: int = None,
         linear_prob: bool = True,
-        mute: bool = False) -> Tuple[PreModel, Tuple[float, float, float]]:
+        mute: bool = False) -> Tuple[torch.nn.Module, Dict[str, float]]:
     model.eval()
     if linear_prob:
         with torch.no_grad():
@@ -47,9 +58,9 @@ def node_classification_evaluation(
 
     encoder.to(device)
     optimizer_f = create_optimizer("adam", encoder, lr_f, weight_decay_f)
-    best_model, f1_scores = linear_probing_for_transductive_node_classiifcation(
-        encoder, graph, x, optimizer_f, max_epoch_f, device, training_epoch, mute)
-    return best_model, f1_scores
+    clf, clf_scores = linear_probing_for_transductive_node_classiifcation(
+        encoder, graph, x, optimizer_f, max_epoch_f, device, mute)
+    return clf, clf_scores
 
 
 def linear_probing_for_transductive_node_classiifcation(
@@ -59,8 +70,7 @@ def linear_probing_for_transductive_node_classiifcation(
         optimizer: torch.optim.Optimizer,
         max_epoch: int,
         device: torch.device,
-        training_epoch: int = None,
-        mute: bool = False) -> Tuple[PreModel, Tuple[float, float, float]]:
+        mute: bool = False) -> Tuple[torch.nn.Module, Dict[str, float]]:
     criterion = torch.nn.CrossEntropyLoss()
 
     graph = graph.to(device)
@@ -71,9 +81,9 @@ def linear_probing_for_transductive_node_classiifcation(
     test_mask = graph.ndata["test_mask"]
     labels = graph.ndata["label"]
 
-    best_val_acc = 0
-    best_val_epoch = 0
-    best_model = None
+    best_val_f1, best_val_recall = 0, 0
+    best_val_f_epoch, best_val_r_epoch = 0, 0
+    best_model_f1 = None
 
     if not mute:
         epoch_iter = tqdm(range(max_epoch))
@@ -92,36 +102,51 @@ def linear_probing_for_transductive_node_classiifcation(
         with torch.no_grad():
             model.eval()
             pred = model(graph, x)
-            val_acc = accuracy(pred[val_mask], labels[val_mask])
+            # validation metrics
+            val_f1 = f1(pred[val_mask], labels[val_mask])
+            val_recall = recall(pred[val_mask], labels[val_mask])
             val_loss = criterion(pred[val_mask], labels[val_mask])
-            test_acc = accuracy(pred[test_mask], labels[test_mask])
+            # test metrics
+            test_f1 = f1(pred[test_mask], labels[test_mask])
+            test_recall = recall(pred[test_mask], labels[test_mask])
             test_loss = criterion(pred[test_mask], labels[test_mask])
 
-        if val_acc >= best_val_acc:
-            best_val_acc = val_acc
-            best_val_epoch = epoch
-            best_model = copy.deepcopy(model)
+        if val_f1 >= best_val_f1:
+            best_val_f1 = val_f1
+            best_val_f_epoch = epoch
+            best_model_f1 = copy.deepcopy(model)
 
         if not mute:
             epoch_iter.set_description(
-                f"# Epoch: {epoch}, train_loss:{loss.item(): .4f}, val_loss:{val_loss.item(): .4f}, val_acc:{val_acc}, test_loss:{test_loss.item(): .4f}, test_acc:{test_acc: .4f}")
+                f"# Epoch: {epoch}, train_loss:{loss.item(): .4f}, val_loss:{val_loss.item(): .4f}, val_f1:{val_f1}, test_loss:{test_loss.item(): .4f}, test_f1:{test_f1: .4f}")
 
-    best_model.eval()
+    best_model_f1.eval()
     with torch.no_grad():
-        pred = best_model(graph, x)
-        estp_test_acc = accuracy(pred[test_mask], labels[test_mask])
+        pred = best_model_f1(graph, x)
 
-        if training_epoch is not None:
-            estp_test_f1 = f1(pred[test_mask], labels[test_mask])
-            estp_train_f1 = f1(pred[train_mask], labels[train_mask])
-            estp_val_f1 = f1(pred[val_mask], labels[val_mask])
+        f1_scores = f1(pred[test_mask], labels[test_mask]), \
+            f1(pred[val_mask], labels[val_mask]), \
+            f1(pred[train_mask], labels[train_mask])
+
+        recall_scores = recall(pred[test_mask], labels[test_mask]), \
+            recall(pred[val_mask], labels[val_mask]), \
+            recall(pred[train_mask], labels[train_mask])
 
     if not mute:
         logging.info(
-            f"--- TestAcc: {test_acc:.4f}, early-stopping-TestAcc: {estp_test_acc:.4f}, Best ValAcc: {best_val_acc:.4f} in epoch {best_val_epoch} --- ")
+            f"--- TestF1: {test_f1:.4f}, early-stopping-TestF1: {f1_scores[0]:.4f}," +
+            f"Best ValF1: {best_val_f1:.4f} in epoch {best_val_f_epoch} --- ")
+        logging.info(
+            f"--- TestRecall: {test_recall:.4f}, early-stopping-TestRecall: {recall_scores[0]:.4f}," +
+            f"Best ValRecall: {best_val_recall:.4f} in epoch {best_val_r_epoch} --- ")
+
+    with open('./preds/wro_xd_v2.pkl', 'wb+') as handle:
+        pickle.dump(pred.cpu(), handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     # (final_acc, es_acc, best_acc)
-    return best_model, (estp_train_f1, estp_val_f1, estp_test_f1)
+    clf_eval_dict = prepare_eval_dict(f1_scores, recall_scores)
+
+    return best_model_f1, clf_eval_dict
 
 
 def linear_probing_for_inductive_node_classiifcation(model, x, labels, mask, optimizer, max_epoch, device, mute=False):
@@ -188,7 +213,9 @@ class LogisticRegression(nn.Module):
     def __init__(self, num_dim, num_class):
         super().__init__()
         self.linear = nn.Linear(num_dim, num_class)
+        self.linear2 = nn.Linear(num_dim, num_class)
 
     def forward(self, g, x, *args):
         logits = self.linear(x)
+        #out = self.linear2(logits)
         return logits
