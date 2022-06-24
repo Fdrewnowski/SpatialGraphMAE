@@ -12,6 +12,7 @@ def build_args() -> argparse.Namespace:
     data_to_download.add_argument('-a', '--all', action='store_true')
     data_to_download.add_argument('-w', '--wroclaw', action='store_true')
     data_to_download.add_argument('-g', '--gdansk', action='store_true')
+    data_to_download.add_argument('-n', '--nysa', action='store_true')
     return parser.parse_args()
 
 
@@ -119,7 +120,7 @@ if __name__ == "__main__":
             "Bratysława, Kraj bratysławski, Słowacja",
             "Tallinn, Prowincja Harju, Estonia",
             "Ryga, Liwonia, Łotwa",
-            "Neapol, Napoli, Kampania, Włochy",
+            #"Neapol, Napoli, Kampania, Włochy",#corrupted
             "Bari, Apulia, Włochy",
             "Cardiff, Walia, CF, Wielka Brytania",
             "Birmingham, Attwood Green, West Midlands Combined Authority, Anglia, Wielka Brytania",
@@ -129,6 +130,8 @@ if __name__ == "__main__":
         places_to_download = ["Wrocław, województwo dolnośląskie, Polska"]
     if args.gdansk:
         places_to_download = ["Gdańsk, województwo pomorskie, Polska"]
+    if args.nysa:
+        places_to_download = ["Nysa, gmina Nysa, powiat nyski, województwo opolskie, Polska"]
     place_iter = tqdm(places_to_download, total=len(places_to_download))
     for place in place_iter:
         place_iter.set_description(
@@ -136,4 +139,4 @@ if __name__ == "__main__":
         try:
             download_graph(place)
         except:
-            logging.warn(f'{place} was corrupted. Skipping...')
+            logging.warning(f'{place} was corrupted. Skipping...')

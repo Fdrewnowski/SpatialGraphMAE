@@ -11,7 +11,7 @@ from dgl.data.utils import load_graphs
 from dgl.heterograph import DGLHeteroGraph
 from tqdm import tqdm
 
-from bikeguessr_transform import DATA_OUTPUT, _sizeof_fmt
+from bikeguessr_transform import DATA_OUTPUT, _sizeof_fmt, load_transform_dir_bikeguessr
 from graphmae.evaluation import (LogisticRegression, f1,
                                  node_classification_evaluation, recall)
 from graphmae.models import SGMAE, build_model
@@ -65,8 +65,14 @@ def train_transductive(args):
     save_model = args.save_model
     logs = args.logging
     use_scheduler = args.scheduler
+    targets = args.targets
 
-    graphs, (num_features, num_classes) = load_bikeguessr_dataset(dataset_path)
+    if args.transform:
+        graphs = load_transform_dir_bikeguessr(targets=targets, save=True)
+    else:
+        graphs, (num_features, num_classes) = load_bikeguessr_dataset(dataset_path)
+    num_features = graphs[0].ndata["feat"].shape[1]
+    num_classes = 2
     args.num_features = num_features
 
     acc_list = []
@@ -334,8 +340,8 @@ def pretrain(model: PreModel,
                 if best_val_f1_score < np.mean(e_f1_val):
                     best_val_f1_score = np.mean(e_f1_val)
                     best_test_f1_score = np.mean(e_f1_test)
-                    torch.save(model, "sgmae_early_stopping.model")
-                    best_gae = torch.load("sgmae_early_stopping.model")
+                    torch.save(model, "sgmae_early_stopping.pt")
+                    best_gae = torch.load("sgmae_early_stopping.pt")
 
         if logger is not None:
             logging_dict = {}

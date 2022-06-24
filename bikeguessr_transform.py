@@ -56,16 +56,21 @@ def build_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_transform_dir_bikeguessr(directory: str = None, save: bool = True, output: str = None, target: str = None) -> None:
+def load_transform_dir_bikeguessr(directory: str = None, save: bool = True, output: str = None, targets: List[str] = None) -> List[DGLHeteroGraph]:
     logging.info('load bikeguessr directory')
     if directory is None:
         directory = DATA_INPUT
     found_files = list(Path(directory).glob('*.xml'))
     graphs = []
     for path in tqdm(found_files):
-        if target is not None:
-            if Path(target) == path:
-                logging.info('skipping target city' + target)
+        if targets is not None:
+            is_target = False
+            for target in targets:
+                if Path(target) == path:
+                    logging.info('skipping target city' + target)
+                    is_target = True
+                    break
+            if is_target:
                 continue
         logging.info('processing: ' + str(path.stem) +
                      ' size: ' + _sizeof_fmt(os.path.getsize(path)))
@@ -79,6 +84,7 @@ def load_transform_dir_bikeguessr(directory: str = None, save: bool = True, outp
     if save:
         save_bikeguessr(output, graphs)
     logging.info('end load bikeguessr directory')
+    return graphs
 
 
 def load_transform_single_bikeguessr(path: str, save: bool = True, output: str = None) -> DGLHeteroGraph:
@@ -331,7 +337,7 @@ if __name__ == "__main__":
     args = build_args()
     if args.all:
         load_transform_dir_bikeguessr(
-            directory=args.path, output=args.output, target=args.target)
+            directory=args.path, output=args.output, targets=args.targets)
     if args.single:
         assert args.path is not None
         logging.info('processing single graph {}'.format(args.path))

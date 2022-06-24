@@ -108,6 +108,8 @@ def build_args():
     parser.add_argument("--path", type=str, default='./data_transformed/bikeguessr.bin')
     parser.add_argument("--eval_epoch", type=int, default=10)
     parser.add_argument("--eval_repeats", type=int, default=5)
+    parser.add_argument("--transform", action="store_true")
+    parser.add_argument("--targets", nargs='+', default=None)
 
     # for graph classification
     parser.add_argument("--pooling", type=str, default="mean")
