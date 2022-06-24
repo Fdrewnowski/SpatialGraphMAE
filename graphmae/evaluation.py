@@ -7,6 +7,8 @@ import torch.nn as nn
 from dgl.heterograph import DGLHeteroGraph
 from tqdm import tqdm
 
+import pickle
+
 from graphmae.models.edcoder import PreModel
 from graphmae.utils import accuracy, create_optimizer, f1
 
@@ -114,6 +116,9 @@ def linear_probing_for_transductive_node_classiifcation(
             estp_test_f1 = f1(pred[test_mask], labels[test_mask])
             estp_train_f1 = f1(pred[train_mask], labels[train_mask])
             estp_val_f1 = f1(pred[val_mask], labels[val_mask])
+
+        with open('data/preds_wro_20_06.pickle', 'wb+') as handle:
+            pickle.dump(pred, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     if not mute:
         logging.info(

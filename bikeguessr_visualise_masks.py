@@ -90,17 +90,37 @@ def _visualise_masked_roads(grapf_networkx: MultiDiGraph, mask: Tensor, name: st
                                      graph_map=m, color="red", edge_width=2, prefer_canvas=True)
     except Exception as e:
         print(str(e))
-    m.save(f"./visu/{name}_masks.html")
+    m.save(f"./final_results/{name}_masks.html")
 
 
 if __name__ == "__main__":
-    # options
-    ox_graph_name = "Wrocław_Polska_recent.xml"
-    dgl_graph_name = "Wroclaw_Polska_recent_masks.graph"
-    mask_to_visualise = 'train_mask'  # 3 options train, dev, test
+    #options
+    ox_graph_name = "wroclaw.xml"
+    dgl_graph_name = "wro_xd.bin"
+    mask_to_visualise = 'train_mask' # 3 options train, dev, test
 
-    graph_ox = ox.io.load_graphml("./data_raw/" + ox_graph_name)
-    dgl_graph = load_graphs("./data_transformed/" + dgl_graph_name)[0][0]
+    graph_ox = ox.io.load_graphml("./final_results/" + ox_graph_name)
+    dgl_graph = load_graphs("./final_results/" + dgl_graph_name)[0][0]
 
-    _visualise_masked_roads(
-        graph_ox, dgl_graph.ndata[mask_to_visualise], ox_graph_name.split('.')[0], False)
+    _visualise_masked_roads(graph_ox, dgl_graph.ndata[mask_to_visualise] , ox_graph_name.split('.')[0], True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
