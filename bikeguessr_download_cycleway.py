@@ -131,7 +131,7 @@ if __name__ == "__main__":
     if args.gdansk:
         places_to_download = ["Gdańsk, województwo pomorskie, Polska"]
     if args.nysa:
-        places_to_download = ["Nysa, gmina Nysa, powiat nyski, województwo opolskie, Polska"]
+        places_to_download = ["Legnica, województwo dolnośląskie, Polska"]
     place_iter = tqdm(places_to_download, total=len(places_to_download))
     for place in place_iter:
         place_iter.set_description(

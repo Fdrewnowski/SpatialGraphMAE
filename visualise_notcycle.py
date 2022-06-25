@@ -37,7 +37,7 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
             if not popup:
                 dif_attributes = None
             dif_cycle.add_edges_from([(x[0], x[1], dif_attributes)])
-        elif int(dif_attributes['label']) == 0 and int(edge['idx']) in pred_ids and int(edge['idx']) in mask_ids:
+        elif int(dif_attributes['label']) == 0 and (int(edge['idx']) not in pred_ids or int(edge['idx']) not in mask_ids):
             vis_data = dict(
             href=f"https://www.openstreetmap.org/way/{edge['osmid']}", 
             years=['cycle', 'masked'], 
@@ -55,13 +55,13 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
         m = ox.plot_graph_folium(dif_cycle, popup_attribute='vis_data', color="blue")
     try:
         if not popup:
-            m = ox.plot_graph_folium(dif_cycle_new, graph_map=m, color="green", edge_width=1)
+            m = ox.plot_graph_folium(dif_cycle_new, graph_map=m, color="red", edge_width=1)
         else:
-            m = ox.plot_graph_folium(dif_cycle_new, popup_attribute='vis_data', graph_map=m, color="green")
+            m = ox.plot_graph_folium(dif_cycle_new, popup_attribute='vis_data', graph_map=m, color="red")
     except Exception as e:
         print("Error in pred as true cycle" + str(e))
 
-    m.save(f"./visu/{name}_{str(popup)}_all.html")
+    m.save(f"./visu/{name}_{str(popup)}_not_cycle.html")
 
     #m1 = ox.plot_graph_folium(dif_cycle, popup_attribute='vis_data', color="blue")
     #m1.save(f"./visu/{name}_{str(popup)}_now.html")
