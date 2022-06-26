@@ -1,128 +1,125 @@
-<p>
-  <img src="imgs/fig.png" width="1000">
-  <br />
-</p>
+<h1> BikeGuessr </h1>
 
-<hr>
+BikeGuessr is a project prepared for Wrocław University of Science and Technology (WUST), Poland Artificial Intelligence Master course in the years 2021/2022. Project contributors are:
+Vladimir Zaigrajew: vladimirzaigrajew@gmail.com
+Jakub Belter kuba.belter@gmail.com
+Filip Drewnowski: drewnowskifilip@gmail.com
+Piotr Szymański: piotr.szymanski@pwr.edu.pl
 
-<h1> GraphMAE: Self-Supervised Masked Graph Autoencoders </h1>
+<h2> About BikeGuessr </h2>
 
-Implementation for KDD'22 paper:  [GraphMAE: Self-Supervised Masked Graph Autoencoders](https://arxiv.org/abs/2205.10803).
+The increasing environmental awareness and desire to lead a healthy lifestyle in European societies leads to an increasing role of the bicycle in everyday life. This leads to the need for more bicycle paths in cities. The presented BikeGuessr project is able to indicate on the basis of the currently existing road network which roads should be revitalized by adding a cycle path. This is all the more important because not all cities have, or do have, units specialized in bicycle infrastructure or managers do not have enough data to indicate the most urgent investments. In this way, BikeGuessr can help reduce project preparation time and costs.
+The solution works on graph data, so in order to preserve spatial relationships, it was decided to use graph neural networks. An autocoder type architecture with atry- boot masking called (GraphMAE) was chosen, this model achieves qualitatively better results than spline networks for example tasks on graphs.
 
-We also have a [Chinese blog](https://zhuanlan.zhihu.com/p/520389049) about GraphMAE on Zhihu (知乎).
+<h2> Data Preprocessing </h2>
 
-GraphMAE is a generative self-supervised graph learning method, which achieves competitive or better performance than existing contrastive methods on tasks including *node classification*, *graph classification*, and *molecular property prediction*.
+The main data source is the [OpenStreetMaps](https://www.openstreetmap.org) platform, which made up the data processing pipeline presented below.
+1. Selection of cities based on diversity and cycling infrastructure development.
+2. Downloading the data and extracting the street grid as a graph from the OSM platform using the OSMnx tool.
+3. Selection of 11 features describing each road along with a feature coding step.
+4. Transforming the graph into a linear graph so that the vertices represent the roads.
+5. Assigning a label whether it is a bike path or not.
+6. Adding training, validation and test masks, used in the learning process of the classifier.
 
-<p>
-  <img src="imgs/compare.png" width="520"><img src="imgs/ablation.jpg" width="270">
-  <br />
-</p>
+<br>
 
-<h2>Dependencies </h2>
+![](imgs/data_transform.png)
+*Fig.1 Data pipeline </figcaption*
 
-* Python >= 3.7
-* [Pytorch](https://pytorch.org/) >= 1.9.0 
-* [dgl](https://www.dgl.ai/) >= 0.7.2
-* pyyaml == 5.4.1
+<br>
 
+<h2> Data </h2>
+Data were downloaded for a total of 60 countries spread across Europe, based on the degree of development of cycling infrastructure and in an attempt to maintain diversity in the dataset.
 
-<h2>Quick Start </h2>
+<br>
 
-For quick start, you could run the scripts: 
+![](imgs/used_cities.png)
+*Fig.2 Cities retrieved through the pipeline used to train the model*
 
-**Node classification**
+<br>
 
-```bash
-sh scripts/run_transductive.sh <dataset_name> <gpu_id> # for transductive node classification
-# example: sh scripts/run_transductive.sh cora/citeseer/pubmed/ogbn-arxiv 0
-sh scripts/run_inductive.sh <dataset_name> <gpu_id> # for inductive node classification
-# example: sh scripts/run_inductive.sh reddit/ppi 0
+1582284 edges from 56 countries were used in the learning process. The model uses 11 features, if a feature does not occur in an edge a default value was defined.
 
-# Or you could run the code manually:
-# for transductive node classification
-python main_transductive.py --dataset cora --encoder gat --decoder gat --seed 0 --device 0
-# for inductive node classification
-python main_inductive.py --dataset ppi --encoder gat --decoder gat --seed 0 --device 0
-```
+<br>
 
-Supported datasets:
+![](imgs/attr_plot.png)
+*Fig.3 The proportion of total features in the learning set*
 
-* transductive node classification:  `cora`, `citeseer`, `pubmed`, `ogbn-arxiv`
-* inductive node classification: `ppi`, `reddit` 
+<br>
 
-Run the scripts provided or add `--use_cfg` in command to reproduce the reported results.
+<h2> Training Data </h2>
 
+Below is an example of a city in the teaching set. In the graph, roads in the city for public use are marked in blue, while bicycle roads are marked in green. The purpose of the model is to indicate which roads should be classified as bikeways. The model achieves this by learning practices from cities across Europe, and then attempts to use the knowledge gained on the knowledge transfer basis.
 
+<br>
 
-**Graph classification**
+![](imgs/ams_data.png)
+*Fig.4 Grid of public roads and cycle paths for the city of Amsterdam*
 
-```bash
-sh scripts/run_graph.sh <dataset_name> <gpu_id>
-# example: sh scripts/run_graph.sh mutag/imdb-b/imdb-m/proteins/... 0 
+<br>
 
-# Or you could run the code manually:
-python main_graph.py --dataset IMDB-BINARY --encoder gin --decoder gin --seed 0 --device 0
-```
+<h2> Visualization Of Results </h2>
 
-Supported datasets: 
+Figures 5 and 6 below show the prediction results of the best model (v3 in Table 1) for Legnica. As can be seen from the visual results, the model is able to predict with good accuracy the existing bike lanes and understands that such roads should be inserted in the city center. Also it can be assumed that it distinguishes the settlements, which are not worth adding to the roads, because not most of the community would not benefit from them.
 
-- `IMDB-BINARY`, `IMDB-MULTI`, `PROTEINS`, `MUTAG`, `NCI1`, `REDDIT-BINERY`, `COLLAB`
+<br>
 
-Run the scripts provided or add `--use_cfg` in command to reproduce the reported results.
+<img src="imgs/legnica_cycleways.png" width="375" height="375"> <img src="imgs/legnica_not_cycleways.png" width="375" height="375">
+*Fig.5 (a) Positive predictions (b) Negative predictions for Legnica*
 
+<br>
 
+<br>
 
-**Molecular Property Prediction**
+<img src="imgs/wabrzych_new.png" width="360" height="400"> <img src="imgs/wabrzych_not_cycle.png" width="360" height="400">
+*Fig.6 (a) Positive predictions (b) Negative predictions for Walbrzych*
 
-Please refer to codes in `./chem` for *molecular property prediction*.
+<br>
 
-<h2> Datasets </h2>
+Since all roads are shown in Figures 5 and 6, the logical consequence would be to check the N best predictions. These results are presented in Figure 7. What can be seen is that the N most important bikeways are segments that are scattered throughout the city and do not form coherent longer routes, e.g. connecting one part of the city with another.
 
-Datasets used in node classification and graph classification will be downloaded automatically from https://www.dgl.ai/ when running the code.
+<br>
 
-<h2> Experimental Results </h2>
+<img src="imgs/kalisz_top300.png" width="250" height="200"> <img src="imgs/kalisz_top500.png" width="250" height="200"> <img src="imgs/kalisz_top1000.png" width="250" height="200">
+*Fig.7 Projected (a) top 300 (b) top 500 (c) top 1000 cycle tracks for the city of Kalisz*
 
-Node classification (Micro-F1, %):
+<br>
 
-|                    | Cora         | Citeseer     | PubMed       | Ogbn-arxiv     | PPI            | Reddit         |
-| ------------------ | ------------ | ------------ | ------------ | -------------- | -------------- | -------------- |
-| DGI                | 82.3±0.6     | 71.8±0.7     | 76.8±0.6     | 70.34±0.16     | 63.80±0.20     | 94.0±0.10      |
-| MVGRL              | 83.5±0.4     | 73.3±0.5     | 80.1±0.7     | -              | -              | -              |
-| BGRL               | 82.7±0.6     | 71.1±0.8     | 79.6±0.5     | 71.64±0.12     | 73.63±0.16     | 94.22±0.03     |
-| CCA-SSG            | 84.0±0.4     | 73.1±0.3     | 81.0±0.4     | 71.24±0.20     | 73.34±0.17     | 95.07±0.02     |
-| **GraphMAE(ours)** | **84.2±0.4** | **73.4±0.4** | **81.1±0.4** | **71.75±0.17** | **74.50±0.29** | **96.01±0.08** |
+<h2> Learning Process </h2>
 
-Graph classification (Accuracy, %)
+The learning process of the SpatialGraphMAE (SGMAE) model is presented in the diagram in Figure 8. The DGL library has been used to implement the solution.
+At first, the masked graph autoencoder is trained. It uses custom noise masks that are created every learning step. Every learning step the model is trained on each city in the training set as mini-batches. The goal of its autoencoder is to encode and decode the encoded road features as accurately as possible. It uses the rescaled cosine error as the loss function. Then, every certain number of epochs the SGMAE learning is switched to learning a classifier that is supposed to classify the roads based on the output of the encoder. Here, the masks that were created while preprocessing the data into a linear graph are used. The cross entropy is used as the loss function.
 
-|                    | IMDB-B         | IMDB-M         | PROTEINS       | COLLAB         | MUTAG          | REDDIT-B       | NCI1           |
-| ------------------ | -------------- | -------------- | -------------- | -------------- | -------------- | -------------- | -------------- |
-| InfoGraph          | 73.03±0.87     | 49.69±0.53     | 74.44±0.31     | 70.65±1.13     | 89.01±1.13     | 82.50±1.42     | 76.20±1.06     |
-| GraphCL            | 71.14±0.44     | 48.58±0.67     | 74.39±0.45     | 71.36±1.15     | 86.80±1.34     | **89.53±0.84** | 77.87±0.41     |
-| MVGRL              | 74.20±0.70     | 51.20±0.50     | -              | -              | **89.70±1.10** | 84.50±0.60     | -              |
-| **GraphMAE(ours)** | **75.52±0.66** | **51.63±0.52** | **75.30±0.39** | **80.32±0.46** | 88.19±1.26     | 88.01±0.19     | **80.40±0.30** |
+<br>
 
-Transfer learning on molecular property prediction (ROC-AUC, %): 
+![](imgs/image1.png)
+*Fig.8 The process of training the modelsm*
 
-|                    | BBBP         | Tox21        | ToxCast      | SIDER        | ClinTox      | MUV          | HIV          | BACE         | Avg.     |
-| ------------------ | ------------ | ------------ | ------------ | ------------ | ------------ | ------------ | ------------ | ------------ | -------- |
-| AttrMasking        | 64.3±2.8     | **76.7±0.4** | **64.2±0.5** | 61.0±0.7     | 71.8±4.1     | 74.7±1.4     | 77.2±1.1     | 79.3±1.6     | 71.1     |
-| GraphCL            | 69.7±0.7     | 73.9±0.7     | 62.4±0.6     | 60.5±0.9     | 76.0±2.7     | 69.8±2.7     | **78.5±1.2** | 75.4±1.4     | 70.8     |
-| GraphLoG           | **72.5±0.8** | 75.7±0.5     | 63.5±0.7     | **61.2±1.1** | 76.7±3.3     | 76.0±1.1     | 77.8±0.8     | **83.5±1.2** | 73.4     |
-| **GraphMAE(ours)** | 72.0±0.6     | 75.5±0.6     | 64.1±0.3     | 60.3±1.1     | **82.3±1.2** | **76.3±2.4** | 77.2±1.0     | 83.1±0.9     | **73.8** |
+<br>
 
-<h1> Citing </h1>
+<h2> Visualization Of The Learning Process </h2>
 
-If you find this work is helpful to your research, please consider citing our paper:
+Figure 9 shows the classifier results for the different versions of the models during the autocoder learning. The different versions differ in the number of encoder and decoder layers and their hidden space. The individual values are given in Table 1.
 
-```
-@article{hou2022graphmae,
-  title={GraphMAE: Self-Supervised Masked Graph Autoencoders},
-  author={Hou, Zhenyu and Liu, Xiao and Cen, Yukuo and Dong, Yuxiao and Yang, Hongxia and Wang, Chunjie and Tang, Jie},
-  journal={arXiv e-prints},
-  pages={arXiv--2205},
-  year={2022}
-}
-```
+| Model | Number of layers | Size of hidden layer |
+|-------|------------------|----------------------|
+| v1    | 2                | 256                  |
+| v2    | 3                | 512                  |
+| v3    | 2                | 128                  |
+| v4    | 4                | 64                   |
 
+Table.1 Parameters of trained models
 
+<br>
 
+![](imgs/gmae_f1_test.png)
+*Fig.9 Value of F1 measure for individual models for test data*
+
+<br>
+
+<h2> Summary </h2>
+
+The quantitative and qualitative results indicate that the model, in the process of learning, has learned some relationships about what bike lanes look like and where they occur.
+However, if the results of this model were to be used as a recommendation system, some changes would need to be made to the predicted connections to make them more transparent. Currently, a system that groups short segments into larger segments is lacking, as the best segments are scattered throughout the city.
+Additionally, in terms of data, more features could be added such as traffic model data for bicycle traffic which would come at a high cost as it is difficult to access. Another type of data could be aggregated features of the area in which the edge is located (e.g., is there a store nearby, is there a park nearby).
+There is a lack of models in the literature that make such predictions, so the SGMAE model is a first step in developing this area of study.
