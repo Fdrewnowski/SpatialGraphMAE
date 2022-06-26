@@ -1,10 +1,12 @@
 <h1> BikeGuessr </h1>
 
 BikeGuessr is a project prepared for Wrocław University of Science and Technology (WUST), Poland Artificial Intelligence Master course in the years 2021/2022. Project contributors are:
-Vladimir Zaigrajew: vladimirzaigrajew@gmail.com
-Jakub Belter kuba.belter@gmail.com
-Filip Drewnowski: drewnowskifilip@gmail.com
-Piotr Szymański: piotr.szymanski@pwr.edu.pl
+* Vladimir Zaigrajew: vladimirzaigrajew@gmail.com
+*  Jakub Belter kuba.belter@gmail.com
+* Filip Drewnowski: drewnowskifilip@gmail.com
+* Piotr Szymański: piotr.szymanski@pwr.edu.pl
+
+<br>
 
 <h2> About BikeGuessr </h2>
 
