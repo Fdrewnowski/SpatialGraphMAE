@@ -66,14 +66,14 @@ Figures 5 and 6 below show the prediction results of the best model (v3 in Table
 
 <br>
 
-<img src="imgs/legnica_cycleways.png" width="420" height="420"> <img src="imgs/legnica_not_cycleways.png" width="420" height="420">
+<img src="imgs/legnica_cycleways.png" width="410" height="410"> <img src="imgs/legnica_not_cycleways.png" width="410" height="410">
 *Fig.5 (a) Positive predictions (b) Negative predictions for Legnica*
 
 <br>
 
 <br>
 
-<img src="imgs/wabrzych_new.png" width="420" height="460"> <img src="imgs/wabrzych_not_cycle.png" width="420" height="460">
+<img src="imgs/wabrzych_new.png" width="410" height="450"> <img src="imgs/wabrzych_not_cycle.png" width="410" height="450">
 *Fig.6 (a) Positive predictions (b) Negative predictions for Walbrzych*
 
 <br>
