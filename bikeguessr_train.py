@@ -109,15 +109,15 @@ def train_transductive(args):
             logging.info("Loading Model ... ")
             model = torch.load("sgmae.model")
         else:
-            gae_early_stopping, gae_full, (f1_early_stopping, f1_full) = \
+            gae_full, gae_early_stopping, (f1_early_stopping, f1_full) = \
                 pretrain(model, graphs, X, optimizer, max_epoch, device, scheduler,
                          num_classes, lr_f, weight_decay_f, max_epoch_f, linear_prob, logger,
                          eval_epoch, eval_repeats)
-            model = gae_full
+            model = gae_early_stopping
             if save_model:
                 logging.info("Saving trained Graph Masked Auto Encoders...")
-                torch.save(gae_full.cpu(), "gmae_full.model")
-                torch.save(gae_early_stopping.cpu(), "gmae_early_stopping.model")
+                torch.save(gae_full.cpu(), "gmae_full_v4.model")
+                torch.save(gae_early_stopping.cpu(), "gmae_early_stopping_v4.model")
             logging.info(
                 f'early stopping f1 score on test (pretrain): {f1_early_stopping}')
             logging.info(
@@ -132,12 +132,12 @@ def train_transductive(args):
 
         # best_model = sgmae_full if f1_score_early_stopping > f1_score_eot[2] else sgmae_full_eot
         best_clf = train_clf(model, graphs, X, num_classes, lr_f,
-                             weight_decay_f, max_epoch_f, device, logger)
+                             weight_decay_f, 200, device, logger)
         # TODO: training to create sgmae
         full_model = SGMAE(model, best_clf)
         if save_model:
             logging.info("Saving Model ...")
-            torch.save(full_model.cpu(), "sgmae.model")
+            torch.save(full_model.cpu(), "sgmae_v4.model")
 
         if logger is not None:
             logger.finish()
@@ -244,15 +244,15 @@ def train_clf(
 
     best_clf_f1.eval()
     with torch.no_grad():
-        pred = best_clf_f1(graph, x)
-
-        f1_scores = f1(pred[test_mask], labels[test_mask]), \
-            f1(pred[val_mask], labels[val_mask]), \
-            f1(pred[train_mask], labels[train_mask])
+        test_f1_early_stopping = []
+        for graph, x in zip(graphs, X):
+            pred = best_clf_f1(graph, x)
+            test_f1_early_stopping.append(f1(pred[test_mask], labels[test_mask]))
+        test_f1_early_stopping = np.mean(test_f1_early_stopping)
 
     if not mute:
         logging.info(
-            f"--- TestF1: {test_f1:.4f}, early-stopping-TestF1: {f1_scores[0]:.4f}," +
+            f"--- TestF1: {test_f1:.4f}, early-stopping-TestF1: {test_f1_early_stopping:.4f}," +
             f"Best ValF1: {best_val_f1:.4f} in epoch {best_val_f_epoch} --- ")
 
     return best_clf_f1
