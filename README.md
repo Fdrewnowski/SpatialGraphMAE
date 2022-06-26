@@ -26,7 +26,7 @@ The main data source is the [OpenStreetMaps](https://www.openstreetmap.org) plat
 <br>
 
 ![](imgs/data_transform.png)
-*Fig.1 Data pipeline </figcaption*
+*Fig.1 Data pipeline*
 
 <br>
 
@@ -35,7 +35,7 @@ Data were downloaded for a total of 60 countries spread across Europe, based on 
 
 <br>
 
-<img src="imgs/used_cities.png" width="750" height="700">
+<img src="imgs/used_cities.png" width="800" height="700">
 *Fig.2 Cities retrieved through the pipeline used to train the model*
 
 <br>
@@ -66,14 +66,14 @@ Figures 5 and 6 below show the prediction results of the best model (v3 in Table
 
 <br>
 
-<img src="imgs/legnica_cycleways.png" width="385" height="385"> <img src="imgs/legnica_not_cycleways.png" width="385" height="385">
+<img src="imgs/legnica_cycleways.png" width="420" height="420"> <img src="imgs/legnica_not_cycleways.png" width="420" height="420">
 *Fig.5 (a) Positive predictions (b) Negative predictions for Legnica*
 
 <br>
 
 <br>
 
-<img src="imgs/wabrzych_new.png" width="380" height="420"> <img src="imgs/wabrzych_not_cycle.png" width="380" height="420">
+<img src="imgs/wabrzych_new.png" width="420" height="460"> <img src="imgs/wabrzych_not_cycle.png" width="420" height="460">
 *Fig.6 (a) Positive predictions (b) Negative predictions for Walbrzych*
 
 <br>
