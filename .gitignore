@@ -137,3 +137,6 @@ data_transformed/
 logging_data/
 cache/
 preds/
+models/
+.vscode/
+tmp/

@@ -280,13 +280,13 @@ NCI1:
 bikeguessr:
   lr: 0.001
   lr_f: 0.01
-  num_hidden: 512
+  num_hidden: 64
   num_heads: 4
-  num_layers: 2
+  num_layers: 3
   weight_decay: 2e-4
   weight_decay_f: 1e-4
-  max_epoch: 100
-  max_epoch_f: 300
+  max_epoch: 200
+  max_epoch_f: 50
   mask_rate: 0.5
   num_layers: 2
   encoder: gat
@@ -300,4 +300,6 @@ bikeguessr:
   optimizer: adam
   replace_rate: 0.05 
   alpha_l: 3
-  scheduler: True
+  save_model: True
+  logging: True
+  eval_epoch: 4

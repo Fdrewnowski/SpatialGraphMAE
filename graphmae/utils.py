@@ -52,7 +52,7 @@ def get_current_lr(optimizer):
 
 def build_args():
     parser = argparse.ArgumentParser(description="GAT")
-    parser.add_argument("--seeds", type=int, nargs="+", default=[0])
+    parser.add_argument("--seeds", type=int, nargs="+", default=[2137])
     parser.add_argument("--dataset", type=str, default="bikeguessr")
     parser.add_argument("--device", type=int, default=-1)
     parser.add_argument("--max_epoch", type=int, default=200,
