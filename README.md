@@ -35,7 +35,7 @@ Data were downloaded for a total of 60 countries spread across Europe, based on 
 
 <br>
 
-![](imgs/used_cities.png)
+<img src="imgs/used_cities.png" width="750" height="700">
 *Fig.2 Cities retrieved through the pipeline used to train the model*
 
 <br>
@@ -66,14 +66,14 @@ Figures 5 and 6 below show the prediction results of the best model (v3 in Table
 
 <br>
 
-<img src="imgs/legnica_cycleways.png" width="375" height="375"> <img src="imgs/legnica_not_cycleways.png" width="375" height="375">
+<img src="imgs/legnica_cycleways.png" width="385" height="385"> <img src="imgs/legnica_not_cycleways.png" width="385" height="385">
 *Fig.5 (a) Positive predictions (b) Negative predictions for Legnica*
 
 <br>
 
 <br>
 
-<img src="imgs/wabrzych_new.png" width="360" height="400"> <img src="imgs/wabrzych_not_cycle.png" width="360" height="400">
+<img src="imgs/wabrzych_new.png" width="380" height="420"> <img src="imgs/wabrzych_not_cycle.png" width="380" height="420">
 *Fig.6 (a) Positive predictions (b) Negative predictions for Walbrzych*
 
 <br>
@@ -82,7 +82,7 @@ Since all roads are shown in Figures 5 and 6, the logical consequence would be t
 
 <br>
 
-<img src="imgs/kalisz_top300.png" width="250" height="200"> <img src="imgs/kalisz_top500.png" width="250" height="200"> <img src="imgs/kalisz_top1000.png" width="250" height="200">
+<img src="imgs/kalisz_top300.png" width="260" height="200"> <img src="imgs/kalisz_top500.png" width="260" height="200"> <img src="imgs/kalisz_top1000.png" width="260" height="200">
 *Fig.7 Projected (a) top 300 (b) top 500 (c) top 1000 cycle tracks for the city of Kalisz*
 
 <br>
