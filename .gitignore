@@ -141,3 +141,4 @@ models/
 .vscode/
 tmp/
 wandb/
+.imgs/

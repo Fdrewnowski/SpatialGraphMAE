@@ -27,7 +27,7 @@ def download_graph(place: str):
     output = output.replace(' ', "")
     gdf = ox.geocoder.geocode_to_gdf(place)
     polygon = gdf['geometry'][0]
-    filters = ['["highway"~"cycleway"]', '["bicycle"~"designated"]', '["cycleway"]']
+    filters = ['["highway"~"cycleway"]', '["bicycle"~"designated"]', '["bicycle"~"permissive"]', '["bicycle"~"yes"]','["cycleway"~"lane"]']
 
     #print("Downloading graphs")
     graphs_with_cycle = [ox.graph.graph_from_polygon(
@@ -63,75 +63,23 @@ if __name__ == "__main__":
     args = build_args()
     places_to_download = []
     if args.all:
-        places_to_download = ["Wrocław, województwo dolnośląskie, Polska",
-            "Gdańsk, województwo pomorskie, Polska",
-            "Poznań, województwo wielkopolskie, Polska",
-            "Warszawa, województwo mazowieckie, Polska",
-            "Kraków, województwo małopolskie, Polska",
-            "Berlin, Niemcy",
-            "Mediolan, Lombardia, Włochy",
-            "Amsterdam, Holandia Północna, Niderlandy, Holandia",
-            #"Londyn, Greater London, Anglia, Wielka Brytania", # too big
-            "Budapeszt, Środkowe Węgry, Węgry",
-            "Sztokholm, Solna kommun, Stockholm County, Szwecja",
-            "Oslo, Norwegia",
-            "Wilno, Samorząd miasta Wilna, Okręg wileński, Litwa",
-            "Bruksela, Brussels-Capital, Belgia",
-            "Rzym, Roma Capitale, Lacjum, Włochy",
-            "Florencja, Metropolitan City of Florence, Toskania, Włochy",
-            "Bolonia, Emilia-Romania, Włochy",
-            "Lizbona, Lisbon, Portugalia",
-            "Madryt, Área metropolitana de Madrid y Corredor del Henares, Wspólnota Madrytu, Hiszpania",
-            "Sewilla, Sevilla, Andaluzja, Hiszpania",
-            "Walencja, Comarca de València, Walencja, Wspólnota Walencka, Hiszpania",
-            "Barcelona, Barcelonès, Barcelona, Katalonia, 08001, Hiszpania",
-            "Bilbao, Biscay, Kraj Basków, Hiszpania",
-            "Saragossa, Zaragoza, Saragossa, Aragonia, Hiszpania",
-            "Marsylia, Marseille, Bouches-du-Rhône, Prowansja-Alpy-Lazurowe Wybrzeże, Francja metropolitalna, 13000, Francja",
-            "Lyon, Métropole de Lyon, Departemental constituency of Rhône, Owernia-Rodan-Alpy, Francja metropolitalna, Francja",
-            "Bordeaux, Żyronda, Nowa Akwitania, Francja metropolitalna, Francja",
-            "Paryż, Ile-de-France, Francja metropolitalna, Francja",
-            "Rennes, Ille-et-Vilaine, Brittany, Francja metropolitalna, Francja",
-            "Lille, Nord, Hauts-de-France, Francja metropolitalna, Francja ",
-            "Amiens, Somme, Hauts-de-France, Francja metropolitalna, Francja",
-            "Dublin, Dublin 1, Leinster, Irlandia",
-            "Rotterdam, Holandia Południowa, Niderlandy, Holandia",
-            "Haga, Holandia Południowa, Niderlandy, Holandia",
-            "Dordrecht, Holandia Południowa, Niderlandy, Holandia",
-            "Antwerpia, Flanders, Belgia",
-            "Essen, Nadrenia Północna-Westfalia, Niemcy",
-            "Hanower, Region Hannover, Dolna Saksonia, Niemcy",
-            "Monachium, Bawaria, Niemcy",
-            "Berno, Bern-Mittelland administrative district, Bernese Mittelland administrative region, Berno, Szwajcaria",
-            "Zurych, District Zurich, Zurych, Szwajcaria",
-            "Bazylea, Basel-City, Szwajcaria",
-            "Salzburg, 5020, Austria",
-            "Wiedeń, Austria",
-            "Praga, Czechy",
-            "Malmo, Malmö kommun, Skåne County, Szwecja",
-            "Central Region, Malta",
-            "Ljubljana, Upravna Enota Ljubljana, Słowenia",
-            "Zagrzeb, City of Zagreb, Chorwacja",
-            "Budapeszt, Środkowe Węgry, Węgry",
-            "Bukareszt, Rumunia",
-            "Helsinki, Helsinki sub-region, Uusimaa, Southern Finland, Mainland Finland, Finlandia",
-            "Wenecja, Venezia, Wenecja Euganejska, Włochy",
-            "Arnhem, Geldria, Niderlandy, Holandia",
-            "Bratysława, Kraj bratysławski, Słowacja",
-            "Tallinn, Prowincja Harju, Estonia",
-            "Ryga, Liwonia, Łotwa",
-            #"Neapol, Napoli, Kampania, Włochy",#corrupted
-            "Bari, Apulia, Włochy",
-            "Cardiff, Walia, CF, Wielka Brytania",
-            "Birmingham, Attwood Green, West Midlands Combined Authority, Anglia, Wielka Brytania",
-            "Lwów, Lviv Urban Hromada, Rejon lwowski, Obwód lwowski, Ukraina"]
+        places_to_download = ["Antwerpia, Flanders, Belgia",
+            "Ghent, Gent, Flandria Wschodnia, Flanders, Belgia",
+            "Charleroi, Hainaut, Walonia, Belgia",
+            "Liège, Walonia, 4000, Belgia",
+            "Bruksela, Brussels, Brussels-Capital, Belgia",
+            "Schaerbeek - Schaarbeek, Brussels-Capital, Belgia",
+            "Anderlecht, Brussels-Capital, 1070, Belgia",
+            "Brugia, Flandria Zachodnia, Flanders, Belgia",
+            "Namur, Walonia, Belgia"
+            ]
             
     if args.wroclaw:
         places_to_download = ["Wrocław, województwo dolnośląskie, Polska"]
     if args.gdansk:
         places_to_download = ["Gdańsk, województwo pomorskie, Polska"]
     if args.nysa:
-        places_to_download = ["Legnica, województwo dolnośląskie, Polska"]
+        places_to_download = ["Wałbrzych, województwo dolnośląskie, Polska"]
     place_iter = tqdm(places_to_download, total=len(places_to_download))
     for place in place_iter:
         place_iter.set_description(
