@@ -9,9 +9,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 import yaml
+import wandb
 from sklearn.metrics import f1_score as sk_f1_score, recall_score as sk_recall_score
-from tensorboardX import SummaryWriter
 from torch import optim as optim
+import wandb
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -28,13 +29,13 @@ def accuracy(y_pred, y_true):
 def f1(y_pred, y_true) -> float:
     y_true = y_true.squeeze().long()
     preds = y_pred.max(1)[1].type_as(y_true)
-    return sk_f1_score(y_true.cpu(), preds.cpu())
+    return float(sk_f1_score(y_true.cpu(), preds.cpu()))
 
 
 def recall(y_pred, y_true) -> float:
     y_true = y_true.squeeze().long()
     preds = y_pred.max(1)[1].type_as(y_true)
-    return sk_recall_score(y_true.cpu(), preds.cpu())
+    return float(sk_recall_score(y_true.cpu(), preds.cpu()))
 
 
 def set_random_seed(seed):
@@ -105,11 +106,13 @@ def build_args():
     parser.add_argument("--logging", action="store_true")
     parser.add_argument("--scheduler", action="store_true", default=False)
     parser.add_argument("--concat_hidden", action="store_true", default=False)
-    parser.add_argument("--path", type=str, default='./data_transformed/bikeguessr.bin')
+    parser.add_argument("--path", type=str,
+                        default='./data_transformed/bikeguessr.bin')
     parser.add_argument("--eval_epoch", type=int, default=10)
     parser.add_argument("--eval_repeats", type=int, default=5)
     parser.add_argument("--transform", action="store_true")
     parser.add_argument("--targets", nargs='+', default=None)
+    parser.add_argument("--wandb_key", type=str, default=None)
 
     # for graph classification
     parser.add_argument("--pooling", type=str, default="mean")
@@ -226,32 +229,19 @@ def load_best_configs(args, path):
 # ------ logging ------
 
 class TBLogger(object):
-    def __init__(self, log_path="./logging_data", name="run"):
+    def __init__(self, name: str, wandb_api_key: str, project: str = "bikeguessr-poc", options={}):
         super(TBLogger, self).__init__()
+        os.environ['WANDB_API_KEY'] = wandb_api_key
+        self.writer = wandb.init(
+            project=project, entity="bikeguessr", name=name)
+        assert self.writer is wandb.run
+        self.writer.config = options
 
-        if not os.path.exists(log_path):
-            os.makedirs(log_path, exist_ok=True)
-
-        self.last_step = 0
-        self.log_path = log_path
-        raw_name = os.path.join(log_path, name)
-        name = raw_name
-        for i in range(1000):
-            name = raw_name + str(f"_{i}")
-            if not os.path.exists(name):
-                break
-        self.writer = SummaryWriter(logdir=name)
-
-    def note(self, metrics, step=None):
-        if step is None:
-            step = self.last_step
-        for key, value in metrics.items():
-            self.writer.add_scalar(key, value, step)
-        self.last_step = step
-        self.writer.flush()
+    def note(self, metrics, step):
+        self.writer.log(metrics, step=step)
 
     def finish(self):
-        self.writer.close()
+        self.writer.finish()
 
 
 class NormLayer(nn.Module):

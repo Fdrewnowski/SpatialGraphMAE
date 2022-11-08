@@ -117,7 +117,6 @@ if __name__ == "__main__":
     dgl_graph_name = "Wroclaw_Polska_recent_masks.graph"
     prediction_file = "Wrocław_Polska_recent_pred.pickle"
     mask_to_visualise = 'test_mask'  # 3 options train, dev, test
-
     graph_ox = ox.io.load_graphml("./data_raw/" + ox_graph_name)
     dgl_graph = load_graphs("./data_transformed/" + dgl_graph_name)[0][0]
 

@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 import torch
@@ -75,10 +75,8 @@ def train_transductive(args):
     num_classes = 2
     args.num_features = num_features
 
-    acc_list = []
-    estp_acc_list = []
     for i, seed in enumerate(seeds):
-        print(f"####### Run {i} for seed {seed}")
+        logging.info(f"####### Run {i} for seed {seed}")
         set_random_seed(seed)
 
         if logs:
@@ -155,7 +153,7 @@ def train_clf(
         max_epoch_f: float,
         device: torch.device,
         logger: TBLogger = None,
-        mute: bool = False) -> torch.nn.Module:
+        mute: bool = False) -> Union[torch.nn.Module, None]:
     gmae.eval()
 
     with torch.no_grad():
@@ -368,6 +366,5 @@ if __name__ == '__main__':
     args = build_args()
     if args.use_cfg:
         args = load_best_configs(args, "configs.yml")
-    print(args)
+    logging.info(args)
     train_transductive(args)
-    # TENSORBOARD_WRITER.close()

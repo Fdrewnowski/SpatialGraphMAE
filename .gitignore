@@ -140,3 +140,4 @@ preds/
 models/
 .vscode/
 tmp/
+wandb/
