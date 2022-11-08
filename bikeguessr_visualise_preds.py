@@ -1,5 +1,5 @@
 import pickle
-
+import torch
 import folium
 import networkx as nx
 import osmnx as ox
@@ -7,6 +7,7 @@ from dgl.data.utils import load_graphs
 from networkx.classes.multidigraph import MultiDiGraph
 from torch import Tensor
 from tqdm import tqdm
+from folium.plugins import FloatImage
 
 
 def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name: str, popup: bool):
@@ -74,21 +75,23 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
             if not popup:
                 dif_attributes = None
             diff_unmasked.add_edges_from([(x[0], x[1], dif_attributes)])
-
-    if not popup:
-        m = ox.plot_graph_folium(diff_unmasked, color="blue", edge_width=1)
-    else:
-        m = ox.plot_graph_folium(
-            diff_unmasked, popup_attribute='vis_data', color="blue", edge_width=1)
     try:
         if not popup:
             m = ox.plot_graph_folium(
-                dif_masked_different, graph_map=m, color="orange", edge_width=1)
+                dif_masked_different, color="orange", edge_width=1)
         else:
             m = ox.plot_graph_folium(
-                dif_masked_different, popup_attribute='vis_data', graph_map=m, color="orange", edge_width=2)
+                dif_masked_different, popup_attribute='vis_data', color="orange", edge_width=2)
     except Exception as e:
         print("Error in pred as noncycleway" + str(e))
+    try:
+        if not popup:
+            m = ox.plot_graph_folium(diff_unmasked, graph_map=m, color="blue", edge_width=1)
+        else:
+            m = ox.plot_graph_folium(
+                diff_unmasked, popup_attribute='vis_data', graph_map=m, color="blue", edge_width=1)
+    except Exception as e:
+        print("Error in pred as unmasked" + str(e))
     try:
         if not popup:
             m = ox.plot_graph_folium(
@@ -108,23 +111,26 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
     except Exception as e:
         print("Error in pred as new cycle" + str(e))
 
-    m.save(f"./visu/{name}_{str(popup)}.html")
+    FloatImage("./imgs/legend_full.jpg", bottom=5, left=86).add_to(m)
+    m.save(f"./visu/{name}_{str(popup)}_full.html")
 
 
 if __name__ == "__main__":
     # options
-    ox_graph_name = "Wrocław_Polska_recent.xml"
-    dgl_graph_name = "Wroclaw_Polska_recent_masks.graph"
-    prediction_file = "Wrocław_Polska_recent_pred.pickle"
+    ox_graph_name = "Wałbrzych_Polska_recent.xml"
+    dgl_graph_name = "bikeguessr.bin"
+    prediction_file = "bikeguessr.pkl"
     mask_to_visualise = 'test_mask'  # 3 options train, dev, test
 
     graph_ox = ox.io.load_graphml("./data_raw/" + ox_graph_name)
     dgl_graph = load_graphs("./data_transformed/" + dgl_graph_name)[0][0]
 
-    with open("./data/" + prediction_file, 'rb') as handle:
+    with open("./preds/" + prediction_file, 'rb') as handle:
         predictions = pickle.load(handle)
+        print(predictions)
         predictions = predictions.max(1)[1].type_as(
             dgl_graph.ndata[mask_to_visualise])
 
-    _show_preds(graph_ox, dgl_graph.ndata[mask_to_visualise],
-                predictions, prediction_file.split('.')[0], False)
+    all_elem = torch.ones(predictions.shape[0])
+    _show_preds(graph_ox, all_elem,
+                predictions, prediction_file.split('.')[0], True)

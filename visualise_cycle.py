@@ -9,7 +9,20 @@ from torch import Tensor
 from folium.folium import Map
 from dgl.data.utils import load_graphs
 import pickle
+from folium.plugins import FloatImage
+import argparse
 
+
+def build_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description='bikeguessr_plot_predictions')
+    parser.add_argument('-p', '--predictfile', type=str, default=None,
+                        help='Name of predicted result file name')
+    parser.add_argument('-d', '--dglfile', type=str, default=None,
+                        help='Name of dgl file name')
+    parser.add_argument('-o', '--oxfile', nargs='+', default=None,
+                        help='Name of ox file name')
+    return parser.parse_args()
 
 def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name: str, popup: bool):
     assert grapf_networkx.number_of_edges() == mask.shape[0]
@@ -61,7 +74,8 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
     except Exception as e:
         print("Error in pred as true cycle" + str(e))
 
-    m.save(f"./visu/{name}_{str(popup)}_all.html")
+    FloatImage("./imgs/legend_new.jpg", bottom=5, left=86).add_to(m)
+    m.save(f"./visu/{name}_{str(popup)}_predictions.html")
 
     #m1 = ox.plot_graph_folium(dif_cycle, popup_attribute='vis_data', color="blue")
     #m1.save(f"./visu/{name}_{str(popup)}_now.html")
@@ -69,21 +83,32 @@ def _show_preds(grapf_networkx: MultiDiGraph, mask: Tensor, preds: Tensor, name:
 
 
 if __name__ == "__main__":
-    #options
-    ox_graph_name = "Wrocław_Polska_recent.xml"
-    dgl_graph_name = "wro_xd.bin"
-    prediction_file = "Wrocław_Polska_recent.pkl"
+    args = build_args()
+
+    ox_graph_name = "Wałbrzych_Polska_recent.xml"
+    dgl_graph_name = "bikeguessr.bin"
+    prediction_file = "bikeguessr.pkl"
     mask_to_visualise = 'test_mask' # 3 options train, dev, test
+
+    if args.predictfile:
+        prediction_file = args.predictfile
+    if args.dglfile:
+        dgl_graph_name = args.dglfile
+    if args.oxfile:
+        ox_graph_name = args.oxfile
+
 
     graph_ox = ox.io.load_graphml("./data_raw/" + ox_graph_name)
     #dgl_graph = load_graphs("./final_results/" + dgl_graph_name)[0][0]
 
     with open("./preds/" + prediction_file, 'rb') as handle:
-        predictions = pickle.load(handle).cpu()
+        predictions = pickle.load(handle)#.cpu()
         predictions_bycycle = predictions.max(1)[1]#.type_as(dgl_graph.ndata[mask_to_visualise])
 
-    top_preds = predictions[predictions_bycycle].reshape(2, -1).topk(1000)[1][1].tolist()
-    print(predictions_bycycle.unique(return_counts =True))
-    all_elem = torch.ones(predictions_bycycle.shape[0])
+    number_of_predictions = predictions_bycycle.shape[0]
 
+
+    top_preds = predictions[predictions_bycycle].reshape(2, -1).topk(number_of_predictions)[1][1].tolist()
+    #print(predictions_bycycle.unique(return_counts=True))
+    all_elem = torch.ones(predictions_bycycle.shape[0])
     _show_preds(graph_ox,  all_elem, predictions_bycycle , prediction_file.split('.')[0], True)
